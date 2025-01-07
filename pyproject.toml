@@ -1,0 +1,23 @@
+[tool.ruff]
+# 指定要检查的代码规则集（如 pep8 或 flake8 等规则）
+select = ["E", "F", "I"]
+
+# 检查的最大行长度
+line-length = 110
+
+# 是否自动修复可修复的代码问题
+fix = true
+
+# # 允许的扩展名
+# extend-select = [
+#     "ANN", # 类型注解规则
+# ]
+
+# 排除特定文件或目录
+exclude = [
+    ".git",
+    "__pycache__",
+    "build",
+    "dist",
+    ".venv",
+]
