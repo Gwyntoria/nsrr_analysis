@@ -68,6 +68,7 @@ if __name__ == "__main__":
             raise ValueError("EDF文件和XML文件数量不匹配")
 
         file_counter = 0
+        error_files = []  # 用于存储处理出错的文件
         
         for edf_path, edf_file in edf_files:
             try:
@@ -130,13 +131,39 @@ if __name__ == "__main__":
             except ValueError as ve:
                 print(f"\n处理文件 {edf_file} 时出现错误: {str(ve)}")
                 print("跳过当前文件，继续处理下一个文件...")
+                error_files.append((edf_file, str(ve)))  # 记录错误文件和错误信息
                 continue
             except Exception as e:
                 print(f"\n处理文件 {edf_file} 时出现未预期的错误: {str(e)}")
                 print("详细错误信息:")
                 print(traceback.format_exc())
                 print("跳过当前文件，继续处理下一个文件...")
+                error_files.append((edf_file, str(e)))  # 记录错误文件和错误信息
                 continue
+
+        # 处理完所有文件后，打印错误文件列表
+        if error_files:
+            print("\n以下文件在处理过程中出现错误：")
+            for file_name, error_msg in error_files:
+                print(f"文件: {file_name}")
+                print(f"错误信息: {error_msg}")
+                print("-" * 50)
+            
+            # 将错误文件信息保存到error-file.txt
+            error_file_path = os.path.join(csv_dir, "error-file.txt")
+            try:
+                with open(error_file_path, 'w', encoding='utf-8') as f:
+                    f.write("处理失败的文件列表：\n")
+                    f.write("=" * 50 + "\n")
+                    for file_name, error_msg in error_files:
+                        f.write(f"文件: {file_name}\n")
+                        f.write(f"错误信息: {error_msg}\n")
+                        f.write("-" * 50 + "\n")
+                print(f"\n错误文件列表已保存到: {error_file_path}")
+            except Exception as e:
+                print(f"\n保存错误文件列表时出现错误: {str(e)}")
+        else:
+            print("\n所有文件处理完成，没有出现错误！")
 
     except Exception as e:
         print(f"\n程序执行过程中出现错误: {str(e)}")
