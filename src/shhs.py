@@ -73,7 +73,8 @@ if __name__ == "__main__":
         for edf_path, edf_file in edf_files:
             try:
                 file_counter += 1
-                print(f"\n处理第{file_counter}个文件: {edf_file}")
+                progress = (file_counter / edf_files_num) * 100
+                print(f"处理第{file_counter}/{edf_files_num}个文件 ({progress:.2f}%): {edf_file}")
                 
                 # 找到对应的xml文件
                 xml_path, xml_file = find_matching_xml(edf_file, xml_files)
@@ -98,13 +99,14 @@ if __name__ == "__main__":
                 # 检查CSV文件是否已存在
                 if os.path.exists(csv_path):
                     print(f"CSV文件 {csv_path} 已存在，跳过处理")
+                    print("=" * 50)
                     continue
 
-                print("\n创建数据提取器...")
+                print("创建数据提取器...")
                 edf_extractor = EDFExtractor(full_edf_path, interval=30)
                 xml_extractor = XMLExtractor(full_xml_path, "SleepStage")
 
-                print("\n开始提取数据...")
+                print("开始提取数据...")
                 # 获取原始采样率的ECG数据
                 ecg_data, ecg_timestamps = edf_extractor.get_channel_data("ECG", raw=True)
                 print(f"ECG数据点数: {len(ecg_data)}")
@@ -125,6 +127,7 @@ if __name__ == "__main__":
                 print(f"成功处理文件 {edf_file}")
                 print(f"数据已保存到: {csv_path}")
                 
+                print("=" * 50)
                 # 添加系统延时10ms
                 time.sleep(0.01)
 
