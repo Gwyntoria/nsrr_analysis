@@ -153,9 +153,7 @@ class EDFExtractor:
         print(f"ECG数据采样率: {sampling_rate} Hz")
 
         if sampling_rate < 100:  # 如果采样率低于100Hz，可能无法准确检测R波
-            raise ValueError(
-                f"ECG采样率太低 ({sampling_rate} Hz)，需要原始采样率的数据。请使用raw=True获取数据。"
-            )
+            raise ValueError(f"ECG采样率太低 ({sampling_rate} Hz)，需要原始采样率的数据。请使用raw=True获取数据。")
 
         # 数据预处理
         # 1. 移除基线漂移

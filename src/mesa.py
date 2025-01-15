@@ -50,16 +50,16 @@ if __name__ == "__main__":
         # 获取排序后的edf文件列表
         edf_files = get_sorted_files(edf_dir, ".edf")
         xml_files = get_sorted_files(xml_dir, ".xml")
-        
+
         edf_files_num = len(edf_files)
         xml_files_num = len(xml_files)
         print(f"找到 {edf_files_num} 个EDF文件和 {edf_files_num} 个XML文件")
-        
+
         if edf_files_num != xml_files_num:
             raise ValueError("EDF文件和XML文件数量不匹配")
 
         file_counter = 0
-        
+
         for edf_file in edf_files:
             file_counter += 1
             print(f"\n处理第{file_counter}个文件: {edf_file}")
@@ -85,7 +85,7 @@ if __name__ == "__main__":
             print("\n开始提取数据...")
             heart_rate, timestamps = edf_extractor.get_channel_data("HR")
             print(f"心率数据点数: {len(heart_rate)}")
-            
+
             sleep_stages = xml_extractor.extract_sleep_stages()
             print(f"睡眠阶段数据点数: {len(sleep_stages)}")
 

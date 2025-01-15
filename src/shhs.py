@@ -1,7 +1,7 @@
 import os
 import re
-import traceback
 import time
+import traceback
 
 from csv_saver import CSVSaver
 from extractor import EDFExtractor, XMLExtractor
@@ -46,7 +46,7 @@ def find_matching_xml(edf_filename, xml_files) -> tuple:
     # 从edf文件名中提取编号部分
     edf_base = os.path.splitext(edf_filename)[0]  # 移除扩展名
     xml_pattern = f"{edf_base}-profusion.xml"
-    
+
     for xml_path, xml_file in xml_files:
         if xml_file == xml_pattern:
             return (xml_path, xml_file)
@@ -59,23 +59,23 @@ if __name__ == "__main__":
         # 获取排序后的edf文件列表
         edf_files = get_sorted_files(edf_dir, ".edf")
         xml_files = get_sorted_files(xml_dir, ".xml")
-        
+
         edf_files_num = len(edf_files)
         xml_files_num = len(xml_files)
         print(f"找到 {edf_files_num} 个EDF文件和 {xml_files_num} 个XML文件")
-        
+
         if edf_files_num != xml_files_num:
             raise ValueError("EDF文件和XML文件数量不匹配")
 
         file_counter = 0
         error_files = []  # 用于存储处理出错的文件
-        
+
         for edf_path, edf_file in edf_files:
             try:
                 file_counter += 1
                 progress = (file_counter / edf_files_num) * 100
                 print(f"处理第{file_counter}/{edf_files_num}个文件 ({progress:.2f}%): {edf_file}")
-                
+
                 # 找到对应的xml文件
                 xml_path, xml_file = find_matching_xml(edf_file, xml_files)
                 if not xml_file:
@@ -110,11 +110,11 @@ if __name__ == "__main__":
                 # 获取原始采样率的ECG数据
                 ecg_data, ecg_timestamps = edf_extractor.get_channel_data("ECG", raw=True)
                 print(f"ECG数据点数: {len(ecg_data)}")
-                
+
                 # 将ECG数据转换为30s间隔的心率数据
                 heart_rate, timestamps = edf_extractor.ecg_to_hr(ecg_data, ecg_timestamps)
                 print(f"处理后的心率数据点数: {len(heart_rate)}")
-                
+
                 sleep_stages = xml_extractor.extract_sleep_stages()
                 print(f"睡眠阶段数据点数: {len(sleep_stages)}")
 
@@ -126,7 +126,7 @@ if __name__ == "__main__":
 
                 print(f"成功处理文件 {edf_file}")
                 print(f"数据已保存到: {csv_path}")
-                
+
                 print("=" * 50)
                 # 添加系统延时10ms
                 time.sleep(0.01)
@@ -151,11 +151,11 @@ if __name__ == "__main__":
                 print(f"文件: {file_name}")
                 print(f"错误信息: {error_msg}")
                 print("-" * 50)
-            
+
             # 将错误文件信息保存到error-file.txt
             error_file_path = os.path.join(csv_dir, "error-file.txt")
             try:
-                with open(error_file_path, 'w', encoding='utf-8') as f:
+                with open(error_file_path, "w", encoding="utf-8") as f:
                     f.write("处理失败的文件列表：\n")
                     f.write("=" * 50 + "\n")
                     for file_name, error_msg in error_files:
