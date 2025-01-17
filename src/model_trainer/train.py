@@ -2,10 +2,9 @@ import os
 
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, random_split
-
 from data_loader import SleepDataset
 from model import SleepStageClassifier
+from torch.utils.data import DataLoader, random_split
 from utils import evaluate_model, plot_training_history
 
 
@@ -92,6 +91,6 @@ def train_model(data_dir, model_save_dir, epochs=50, batch_size=32, learning_rat
 
 
 if __name__ == "__main__":
-    data_dir = "../data/mesa/csvs"
-    model_save_dir = "../models"
+    data_dir = "../../data/mesa/csvs"
+    model_save_dir = "../../models"
     train_model(data_dir, model_save_dir)

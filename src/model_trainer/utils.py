@@ -32,7 +32,7 @@ def evaluate_model(model, test_loader, device):
             outputs = model(features)
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
-            
+
             correct += (predicted == labels).sum().item()
 
             all_preds.extend(predicted.cpu().numpy())
@@ -40,7 +40,7 @@ def evaluate_model(model, test_loader, device):
 
     # 修改类别名称
     stage_names = ["Wake", "Stage 1", "Stage 2", "Stage 3", "Stage 4", "REM"]
-    
+
     # 打印详细的评估报告
     print("\nClassification Report:")
     print(classification_report(all_labels, all_preds, target_names=stage_names))
@@ -48,9 +48,7 @@ def evaluate_model(model, test_loader, device):
     # 绘制混淆矩阵
     cm = confusion_matrix(all_labels, all_preds)
     plt.figure(figsize=(12, 10))
-    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
-                xticklabels=stage_names,
-                yticklabels=stage_names)
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=stage_names, yticklabels=stage_names)
     plt.title("Confusion Matrix")
     plt.ylabel("True Label")
     plt.xlabel("Predicted Label")
