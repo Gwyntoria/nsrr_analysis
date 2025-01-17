@@ -11,7 +11,7 @@ from utils import evaluate_model, plot_training_history
 
 def train_model(data_dir, model_save_dir, epochs=50, batch_size=32, learning_rate=0.001):
     # 准备数据
-    dataset = SleepDataset(os.path.join(data_dir, "sleep_data.csv"))
+    dataset = SleepDataset(data_dir, sequence_length=32)  # 使用32个时间步的序列
 
     # 划分训练集和验证集
     train_size = int(0.8 * len(dataset))
@@ -92,6 +92,6 @@ def train_model(data_dir, model_save_dir, epochs=50, batch_size=32, learning_rat
 
 
 if __name__ == "__main__":
-    data_dir = "/data/mesa/csvs"
-    model_save_dir = "/models"
+    data_dir = "../data/mesa/csvs"
+    model_save_dir = "../models"
     train_model(data_dir, model_save_dir)
