@@ -3,7 +3,7 @@
 select = ["E", "F", "I"]
 
 # 检查的最大行长度
-line-length = 120
+line-length = 150
 
 # 是否自动修复可修复的代码问题
 fix = true
