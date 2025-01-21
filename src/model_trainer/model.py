@@ -2,6 +2,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from log_config import setup_logger
+
+logger = setup_logger(name="trainer", log_file="training.log")
 
 class AttentionLayer(nn.Module):
     def __init__(self, hidden_size):
@@ -31,13 +34,8 @@ class SleepStageClassifier(nn.Module):
         super(SleepStageClassifier, self).__init__()
 
         # 增加输入特征的处理
-        self.feature_extractor = nn.Sequential(
-            nn.Linear(input_size, hidden_size),
-            nn.LayerNorm(hidden_size),
-            nn.ReLU(),
-            nn.Dropout(0.2)
-        )
-        
+        self.feature_extractor = nn.Sequential(nn.Linear(input_size, hidden_size), nn.LayerNorm(hidden_size), nn.ReLU(), nn.Dropout(0.2))
+
         self.lstm = nn.LSTM(
             input_size=hidden_size,
             hidden_size=hidden_size,
@@ -63,7 +61,7 @@ class SleepStageClassifier(nn.Module):
             nn.BatchNorm1d(hidden_size // 2),
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(hidden_size // 2, num_classes)
+            nn.Linear(hidden_size // 2, num_classes),
         )
 
         # 添加权重初始化
@@ -71,14 +69,14 @@ class SleepStageClassifier(nn.Module):
 
     def _init_weights(self, module):
         if isinstance(module, nn.Linear):
-            nn.init.kaiming_normal_(module.weight, mode='fan_out', nonlinearity='relu')
+            nn.init.kaiming_normal_(module.weight, mode="fan_out", nonlinearity="relu")
             if module.bias is not None:
                 nn.init.constant_(module.bias, 0)
         elif isinstance(module, nn.LSTM):
             for name, param in module.named_parameters():
-                if 'weight' in name:
+                if "weight" in name:
                     nn.init.orthogonal_(param)
-                elif 'bias' in name:
+                elif "bias" in name:
                     nn.init.constant_(param, 0)
         elif isinstance(module, (nn.BatchNorm1d, nn.LayerNorm)):
             nn.init.constant_(module.weight, 1)
@@ -87,13 +85,13 @@ class SleepStageClassifier(nn.Module):
     def forward(self, x):
         # 特征提取
         x = self.feature_extractor(x)
-        
+
         # LSTM处理
         lstm_out, _ = self.lstm(x)
-        
+
         # 注意力机制
         context_vector, _ = self.attention(lstm_out)
-        
+
         # 分类
         out = self.classifier(context_vector)
         return out

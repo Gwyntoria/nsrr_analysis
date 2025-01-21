@@ -1,15 +1,12 @@
-import logging
 import os
 
 import numpy as np
 import pandas as pd
+from log_config import setup_logger
 from torch.utils.data import Dataset
 
 # 配置日志
-logging.basicConfig(
-    level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
-)
-logger = logging.getLogger(__name__)
+logger = setup_logger(name="trainer", log_file="training.log")
 
 
 class SleepDataset(Dataset):
@@ -83,9 +80,7 @@ class SleepDataset(Dataset):
         logger.debug("Normalizing features per user")
         features_to_normalize = ["heart_rate", "heart_rate_diff", "heart_rate_diff2"]
         for feature in features_to_normalize:
-            self.data[feature] = self.data.groupby("user_id")[feature].transform(
-                lambda x: (x - x.mean()) / (x.std() + 1e-8)
-            )
+            self.data[feature] = self.data.groupby("user_id")[feature].transform(lambda x: (x - x.mean()) / (x.std() + 1e-8))
 
         # 确保所有数据都是有效的
         logger.debug("Removing invalid data")
@@ -111,7 +106,7 @@ class SleepDataset(Dataset):
         stage_dist = self.data["sleep_stage"].value_counts()
         logger.info("Sleep stage distribution:")
         for stage, count in stage_dist.items():
-            logger.info(f"Stage {stage}: {count} samples ({count / len(self.data) * 100:.2f}%)")
+            logger.info(f"Stage {int(stage)}: {int(count)} samples ({count / len(self.data) * 100:.2f}%)")
 
     def prepare_sequences(self):
         """准备序列数据"""
@@ -175,37 +170,33 @@ class SleepDataset(Dataset):
         """增强的数据增强方法"""
         if not self.augment:
             return sequence
-        
+
         try:
             # 随机添加噪声
             if np.random.random() < 0.5:
                 noise_level = np.random.uniform(0.005, 0.015)
                 noise = np.random.normal(0, noise_level, sequence.shape)
                 sequence = sequence + noise
-            
+
             # 随机时间扭曲
             if np.random.random() < 0.3:
                 scale = np.random.uniform(0.85, 1.15)
                 time_steps = np.arange(len(sequence))
-                new_time_steps = np.linspace(0, len(sequence)-1, len(sequence)) * scale
-                
+                new_time_steps = np.linspace(0, len(sequence) - 1, len(sequence)) * scale
+
                 warped_sequence = np.zeros_like(sequence)
                 for i in range(sequence.shape[1]):
-                    warped_sequence[:, i] = np.interp(
-                        time_steps,
-                        new_time_steps,
-                        sequence[:, i]
-                    )
+                    warped_sequence[:, i] = np.interp(time_steps, new_time_steps, sequence[:, i])
                 sequence = warped_sequence
-            
+
             # 添加随机掩码
             if np.random.random() < 0.2:
                 mask_length = np.random.randint(1, 5)
                 start_idx = np.random.randint(0, len(sequence) - mask_length)
-                sequence[start_idx:start_idx + mask_length] = 0
-            
+                sequence[start_idx : start_idx + mask_length] = 0
+
             return sequence
-            
+
         except Exception as e:
             logger.error(f"Error in data augmentation: {str(e)}")
             logger.error(f"Sequence shape: {sequence.shape}")

@@ -1,192 +1,281 @@
-import logging
 import os
+from dataclasses import dataclass
+from pathlib import Path
 
 import torch
 import torch.nn as nn
 import wandb  # 用于实验跟踪
 from data_loader import SleepDataset
+from log_config import setup_logger
 from model import SleepStageClassifier
 from torch.utils.data import DataLoader, random_split
 from tqdm import tqdm
 from utils import evaluate_model, plot_training_history
 
-model_version = "v0.1"
-model_name = f"ssc_model_{model_version}.pth"
-data_dir = "../../data/mesa"
-model_save_dir = "../../models"
+# 配置日志
+logger = setup_logger(name="trainer", log_file="training.log")
 
 
-def train_model(data_dir, model_save_dir, epochs=150, batch_size=64, learning_rate=0.0005):
-    # 设置日志
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(levelname)s - %(message)s",
-        handlers=[logging.FileHandler("training.log"), logging.StreamHandler()],
-    )
-    logger = logging.getLogger(__name__)
+# 在文件开头定义路径
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+DATA_DIR = os.path.join(BASE_DIR, "data", "mesa")
+MODEL_SAVE_DIR = os.path.join(BASE_DIR, "models")
 
-    # 初始化wandb
-    wandb.init(project="sleep-stage-classification")
+MODEL_VERSION = "v0.1"
+MODEL_NAME = f"ssc_model_{MODEL_VERSION}.pth"
 
-    # 准备数据
-    train_dataset = SleepDataset(data_dir, sequence_length=32, training=True)  # 训练集
-    val_dataset = SleepDataset(data_dir, sequence_length=32, training=False)   # 验证集
 
-    # 划分训练集和验证集
-    train_size = int(0.8 * len(train_dataset))
-    val_size = len(train_dataset) - train_size
-    train_dataset, val_dataset = random_split(train_dataset, [train_size, val_size])
+@dataclass
+class TrainingConfig:
+    epochs: int = 200
+    batch_size: int = 64
+    learning_rate: float = 0.0005
+    weight_decay: float = 0.01
+    patience: int = 20
+    lr_patience: int = 5
+    sequence_length: int = 32
+    hidden_size: int = 128
+    num_layers: int = 3
 
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size)
 
-    # 初始化模型
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = SleepStageClassifier(hidden_size=128, num_layers=3).to(device)
+def train_model(config: TrainingConfig, data_dir=DATA_DIR, model_save_dir=MODEL_SAVE_DIR):
+    try:
+        # 设置设备
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        logger.info(f"Using device: {device}")
 
-    # 计算类别权重
-    labels = [label for _, label in train_dataset]
-    # 将标签转换为长整型
-    labels = torch.tensor(labels, dtype=torch.long)
-    class_counts = torch.bincount(labels)
-    class_weights = 1.0 / class_counts.float()
-    class_weights = class_weights / class_weights.sum()
-    class_weights = class_weights.to(device)
+        # 检查数据目录
+        if not os.path.exists(data_dir):
+            raise FileNotFoundError(f"Data directory not found: {data_dir}")
 
-    # 使用加权交叉熵损失
-    criterion = nn.CrossEntropyLoss(weight=class_weights)
+        csv_files = [f for f in os.listdir(data_dir) if f.endswith(".csv")]
+        if not csv_files:
+            raise FileNotFoundError(f"No CSV files found in {data_dir}")
+        logger.info(f"Found {len(csv_files)} CSV files")
 
-    # 使用AdamW优化器，调整参数
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=learning_rate,
-        weight_decay=0.01,  # 增加正则化
-        betas=(0.9, 0.999),
-        eps=1e-8
-    )
+        # 确保目录存在
+        os.makedirs(data_dir, exist_ok=True)
+        os.makedirs(model_save_dir, exist_ok=True)
 
-    # 使用余弦退火学习率调度
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-        optimizer,
-        T_0=10,  # 初始周期
-        T_mult=2,  # 每次重启后周期翻倍
-        eta_min=learning_rate/100  # 最小学习率
-    )
+        logger.info(f"Using data directory: {data_dir}")
+        logger.info(f"Using model save directory: {model_save_dir}")
 
-    # 增加早停的容忍度
-    patience = 20  # 从15增加到20
-    early_stopping_counter = 0
-    best_val_loss = float("inf")
-    
-    # 添加学习率衰减的早停
-    lr_patience = 5
-    lr_counter = 0
-    best_lr_loss = float("inf")
+        # 初始化wandb
+        wandb.init(project="sleep-stage-classification")
 
-    # 记录训练历史
-    train_losses = []
-    val_losses = []
+        # 准备数据
+        dataset = SleepDataset(data_dir, sequence_length=config.sequence_length, augment=True)
 
-    # 训练循环
-    for epoch in range(epochs):
-        model.train()
-        total_train_loss = 0
+        # 计算划分大小
+        total_size = len(dataset)
+        train_size = int(0.8 * total_size)
+        val_size = total_size - train_size
 
-        # 添加进度条
-        train_pbar = tqdm(train_loader, desc=f"Epoch {epoch + 1}/{epochs} [Train]")
-        for features, labels in train_pbar:
-            features = features.float().to(device)
-            labels = labels.long().to(device)
+        # 直接划分数据集
+        train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
 
-            optimizer.zero_grad()
-            outputs = model(features)
-            loss = criterion(outputs, labels)
-            loss.backward()
+        train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
+        val_loader = DataLoader(val_dataset, batch_size=config.batch_size)
 
-            # 记录梯度范数
-            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        # 初始化模型
+        model = SleepStageClassifier(hidden_size=config.hidden_size, num_layers=config.num_layers).to(device)
 
-            optimizer.step()
-            scheduler.step()
+        # 计算类别权重
+        labels = [label for _, label in train_dataset]
+        # 将标签转换为长整型
+        labels = torch.tensor(labels, dtype=torch.long)
+        class_counts = torch.bincount(labels)
+        class_weights = 1.0 / class_counts.float()
+        class_weights = class_weights / class_weights.sum()
+        class_weights = class_weights.to(device)
 
-            total_train_loss += loss.item()
-            train_pbar.set_postfix({"loss": loss.item()})
+        # 使用加权交叉熵损失
+        criterion = nn.CrossEntropyLoss(weight=class_weights)
 
-            # 记录到wandb
-            wandb.log({"batch_loss": loss.item(), "learning_rate": scheduler.get_last_lr()[0], "gradient_norm": grad_norm})
+        # 使用AdamW优化器，调整参数
+        optimizer = torch.optim.AdamW(
+            model.parameters(),
+            lr=config.learning_rate,
+            weight_decay=config.weight_decay,  # 增加正则化
+            betas=(0.9, 0.999),
+            eps=1e-8,
+        )
 
-        # 验证
-        model.eval()
-        total_val_loss = 0
-        val_pbar = tqdm(val_loader, desc=f"Epoch {epoch + 1}/{epochs} [Val]")
-        with torch.no_grad():
-            for features, labels in val_pbar:
+        # 使用余弦退火学习率调度
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+            optimizer,
+            T_0=10,  # 初始周期
+            T_mult=2,  # 每次重启后周期翻倍
+            eta_min=config.learning_rate / 100,  # 最小学习率
+        )
+
+        # 增加早停的容忍度
+        early_stopping_counter = 0
+        best_val_loss = float("inf")
+
+        # 添加学习率衰减的早停
+        lr_counter = 0
+        best_lr_loss = float("inf")
+
+        # 记录训练历史
+        train_losses = []
+        val_losses = []
+
+        # 训练循环
+        for epoch in range(config.epochs):
+            model.train()
+            total_train_loss = 0
+
+            # 添加进度条
+            train_pbar = tqdm(train_loader, desc=f"Epoch {epoch + 1}/{config.epochs} [Train]")
+            for features, labels in train_pbar:
                 features = features.float().to(device)
                 labels = labels.long().to(device)
 
+                optimizer.zero_grad()
                 outputs = model(features)
                 loss = criterion(outputs, labels)
-                total_val_loss += loss.item()
+                loss.backward()
 
-        avg_train_loss = total_train_loss / len(train_loader)
-        avg_val_loss = total_val_loss / len(val_loader)
-        train_losses.append(avg_train_loss)
-        val_losses.append(avg_val_loss)
+                # 记录梯度范数
+                grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
-        # 验证后的早停检查
-        if avg_val_loss < best_val_loss:
-            best_val_loss = avg_val_loss
-            early_stopping_counter = 0
-            # 保存最佳模型
-            if not os.path.exists(model_save_dir):
-                os.makedirs(model_save_dir)
-            torch.save(model.state_dict(), os.path.join(model_save_dir, model_name))
-        else:
-            early_stopping_counter += 1
+                optimizer.step()
+                scheduler.step()
 
-        if early_stopping_counter >= patience:
-            print(f"Early stopping triggered after {epoch + 1} epochs")
-            break
+                total_train_loss += loss.item()
+                train_pbar.set_postfix({"loss": loss.item()})
 
-        # 在训练循环中添加学习率调整
-        if avg_val_loss < best_lr_loss:
-            best_lr_loss = avg_val_loss
-            lr_counter = 0
-        else:
-            lr_counter += 1
-            
-        if lr_counter >= lr_patience:
-            for param_group in optimizer.param_groups:
-                param_group['lr'] *= 0.5
-            lr_counter = 0
-            logger.info(f"Reducing learning rate to {optimizer.param_groups[0]['lr']}")
+                # 记录到wandb
+                wandb.log({"batch_loss": loss.item(), "learning_rate": scheduler.get_last_lr()[0], "gradient_norm": grad_norm})
 
-        # 记录更多指标
-        wandb.log(
-            {
-                "epoch": epoch,
-                "train_loss": avg_train_loss,
-                "val_loss": avg_val_loss,
-            }
-        )
+            # 验证
+            model.eval()
+            total_val_loss = 0
+            val_pbar = tqdm(val_loader, desc=f"Epoch {epoch + 1}/{config.epochs} [Val]")
+            with torch.no_grad():
+                for features, labels in val_pbar:
+                    features = features.float().to(device)
+                    labels = labels.long().to(device)
 
-        logger.info(f"Epoch [{epoch + 1}/{epochs}]")
-        logger.info(f"Training Loss: {avg_train_loss:.4f}")
-        logger.info(f"Validation Loss: {avg_val_loss:.4f}")
+                    outputs = model(features)
+                    loss = criterion(outputs, labels)
+                    total_val_loss += loss.item()
 
-    # 绘制训练历史
-    plot_training_history(train_losses, val_losses)
+            avg_train_loss = total_train_loss / len(train_loader)
+            avg_val_loss = total_val_loss / len(val_loader)
+            train_losses.append(avg_train_loss)
+            val_losses.append(avg_val_loss)
 
-    # 评估最终模型
-    accuracy = evaluate_model(model, val_loader, device)
-    print(f"Final Validation Accuracy: {accuracy:.4f}")
+            # 验证后的早停检查
+            if avg_val_loss < best_val_loss:
+                best_val_loss = avg_val_loss
+                early_stopping_counter = 0
+                # 保存最佳模型
+                torch.save(model.state_dict(), os.path.join(model_save_dir, MODEL_NAME))
+            else:
+                early_stopping_counter += 1
+
+            if early_stopping_counter >= config.patience:
+                print(f"Early stopping triggered after {epoch + 1} epochs")
+                break
+
+            # 在训练循环中添加学习率调整
+            if avg_val_loss < best_lr_loss:
+                best_lr_loss = avg_val_loss
+                lr_counter = 0
+            else:
+                lr_counter += 1
+
+            if lr_counter >= config.lr_patience:
+                for param_group in optimizer.param_groups:
+                    param_group["lr"] *= 0.5
+                lr_counter = 0
+                logger.info(f"Reducing learning rate to {optimizer.param_groups[0]['lr']}")
+
+            # 记录更多指标
+            wandb.log(
+                {
+                    "epoch": epoch,
+                    "train_loss": avg_train_loss,
+                    "val_loss": avg_val_loss,
+                }
+            )
+
+            logger.info(f"Epoch [{epoch + 1}/{config.epochs}]")
+            logger.info(f"Training Loss: {avg_train_loss:.4f}")
+            logger.info(f"Validation Loss: {avg_val_loss:.4f}")
+
+        # 绘制训练历史
+        plot_training_history(train_losses, val_losses)
+
+        # 评估最终模型
+        accuracy = evaluate_model(model, val_loader, device)
+        print(f"Final Validation Accuracy: {accuracy:.4f}")
+
+        return accuracy
+
+    except Exception as e:
+        logger.error(f"Error during training: {str(e)}")
+        raise
+
+
+def save_checkpoint(model, optimizer, epoch, loss, model_save_dir, model_name):
+    checkpoint = {
+        "epoch": epoch,
+        "model_state_dict": model.state_dict(),
+        "optimizer_state_dict": optimizer.state_dict(),
+        "loss": loss,
+    }
+    checkpoint_path = os.path.join(model_save_dir, f"checkpoint_{model_name}")
+    torch.save(checkpoint, checkpoint_path)
+    logger.info(f"Checkpoint saved: {checkpoint_path}")
+
+
+def load_checkpoint(model, optimizer, model_save_dir, model_name):
+    checkpoint_path = os.path.join(model_save_dir, f"checkpoint_{model_name}")
+    if os.path.exists(checkpoint_path):
+        checkpoint = torch.load(checkpoint_path)
+        model.load_state_dict(checkpoint["model_state_dict"])
+        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        start_epoch = checkpoint["epoch"]
+        loss = checkpoint["loss"]
+        logger.info(f"Resumed from epoch {start_epoch}")
+        return start_epoch, loss
+    return 0, float("inf")
+
+
+def validate_model(model, val_loader, criterion, device):
+    model.eval()
+    total_val_loss = 0
+    all_preds = []
+    all_labels = []
+
+    with torch.no_grad():
+        for features, labels in val_loader:
+            features = features.float().to(device)
+            labels = labels.long().to(device)
+
+            outputs = model(features)
+            loss = criterion(outputs, labels)
+            total_val_loss += loss.item()
+
+            _, predicted = torch.max(outputs.data, 1)
+            all_preds.extend(predicted.cpu().numpy())
+            all_labels.extend(labels.cpu().numpy())
+
+    avg_val_loss = total_val_loss / len(val_loader)
+    accuracy = sum(p == label for p, label in zip(all_preds, all_labels)) / len(all_preds)
+
+    return avg_val_loss, accuracy
 
 
 if __name__ == "__main__":
-    train_model(
-        data_dir=data_dir,
-        model_save_dir=model_save_dir,
-        epochs=200,  # 增加最大轮数
-        batch_size=64,  # 减小batch_size以增加随机性
-        learning_rate=0.0005,  # 降低初始学习率
-    )
+    try:
+        config = TrainingConfig()
+        train_model(config)
+    except KeyboardInterrupt:
+        logger.info("Training interrupted by user")
+    except Exception as e:
+        logger.error(f"Training failed: {str(e)}")
+        raise
