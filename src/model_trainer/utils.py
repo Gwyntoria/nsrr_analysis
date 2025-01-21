@@ -5,11 +5,8 @@ import numpy as np
 import seaborn as sns
 import torch
 import torch.nn.functional as F
-from log_config import setup_logger
 from sklearn.metrics import average_precision_score, classification_report, confusion_matrix, precision_recall_curve, roc_auc_score
 from tqdm import tqdm
-
-logger = setup_logger(name="trainer", log_file="training.log")
 
 
 def plot_training_history(train_losses, val_losses, save_dir="../../plots"):

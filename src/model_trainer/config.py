@@ -1,4 +1,18 @@
 import logging
+import os
+from pathlib import Path
+
+# Logging configuration
+LOG_LEVEL = logging.DEBUG
+
+# Path configuration
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+DATA_DIR = os.path.join(BASE_DIR, "data", "mesa")
+MODEL_SAVE_DIR = os.path.join(BASE_DIR, "models")
+
+# Model configuration
+MODEL_VERSION = "v0.1"
+MODEL_NAME = f"ssc_model_{MODEL_VERSION}.pth"
 
 
 def setup_logger(name=None, log_file=None, level=logging.DEBUG):

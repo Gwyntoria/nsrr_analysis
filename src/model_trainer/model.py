@@ -2,9 +2,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from log_config import setup_logger
+from config import LOG_LEVEL, setup_logger
 
-logger = setup_logger(name="trainer", log_file="training.log")
+# 配置日志
+logger = setup_logger(name="model", log_file="training.log", level=LOG_LEVEL)
+
 
 class AttentionLayer(nn.Module):
     def __init__(self, hidden_size):

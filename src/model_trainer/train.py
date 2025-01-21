@@ -1,28 +1,18 @@
 import os
 from dataclasses import dataclass
-from pathlib import Path
 
 import torch
 import torch.nn as nn
 import wandb  # 用于实验跟踪
+from config import DATA_DIR, LOG_LEVEL, MODEL_NAME, MODEL_SAVE_DIR, setup_logger  # Updated imports
 from data_loader import SleepDataset
-from log_config import setup_logger
 from model import SleepStageClassifier
 from torch.utils.data import DataLoader, random_split
 from tqdm import tqdm
 from utils import evaluate_model, plot_training_history
 
-# 配置日志
-logger = setup_logger(name="trainer", log_file="training.log")
-
-
-# 在文件开头定义路径
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-DATA_DIR = os.path.join(BASE_DIR, "data", "mesa")
-MODEL_SAVE_DIR = os.path.join(BASE_DIR, "models")
-
-MODEL_VERSION = "v0.1"
-MODEL_NAME = f"ssc_model_{MODEL_VERSION}.pth"
+# Configure logging
+logger = setup_logger(name="train", log_file="training.log", level=LOG_LEVEL)
 
 
 @dataclass
