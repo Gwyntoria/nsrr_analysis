@@ -2,8 +2,9 @@ import os
 
 import numpy as np
 import pandas as pd
-from config import LOG_LEVEL, setup_logger
 from torch.utils.data import Dataset
+
+from config import LOG_LEVEL, setup_logger
 
 # 配置日志
 logger = setup_logger(name=__name__, log_file="training.log", level=LOG_LEVEL)

@@ -4,12 +4,13 @@ from dataclasses import dataclass
 import torch
 import torch.nn as nn
 import wandb  # 用于实验跟踪
-from config import DATA_DIR, LOG_LEVEL, MODEL_NAME, MODEL_SAVE_DIR, setup_logger  # Updated imports
-from data_loader import SleepDataset
-from model import SleepStageClassifier
 from torch.utils.data import DataLoader, random_split
 from tqdm import tqdm
 from utils import evaluate_model, plot_training_history
+
+from data_loader import SleepDataset
+from model import SleepStageClassifier
+from config import DATA_DIR, LOG_LEVEL, MODEL_NAME, MODEL_SAVE_DIR, setup_logger  # Updated imports
 
 # Configure logging
 logger = setup_logger(name=__name__, log_file="training.log", level=LOG_LEVEL)
@@ -69,11 +70,7 @@ def train_model(config: TrainingConfig, data_dir=DATA_DIR, model_save_dir=MODEL_
         val_loader = DataLoader(val_dataset, batch_size=config.batch_size)
 
         # 初始化模型
-        model = SleepStageClassifier(
-            hidden_size=config.hidden_size, 
-            num_layers=config.num_layers,
-            num_classes=config.num_classes
-        ).to(device)
+        model = SleepStageClassifier(hidden_size=config.hidden_size, num_layers=config.num_layers, num_classes=config.num_classes).to(device)
 
         # 计算类别权重
         labels = [label for _, label in train_dataset]
