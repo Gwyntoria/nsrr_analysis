@@ -1,8 +1,23 @@
+import torch
 import torch.nn as nn
+import torch.nn.functional as F
+
+
+class AttentionLayer(nn.Module):
+    def __init__(self, hidden_size):
+        super(AttentionLayer, self).__init__()
+        self.attention = nn.Linear(hidden_size * 2, 1)
+
+    def forward(self, lstm_output):
+        # lstm_output shape: (batch_size, seq_len, hidden_size * 2)
+        attention_weights = F.softmax(self.attention(lstm_output), dim=1)
+        # 加权求和
+        context_vector = torch.sum(attention_weights * lstm_output, dim=1)
+        return context_vector, attention_weights
 
 
 class SleepStageClassifier(nn.Module):
-    def __init__(self, input_size=7, hidden_size=64, num_layers=2, num_classes=6, dropout=0.3):
+    def __init__(self, input_size=7, hidden_size=256, num_layers=3, num_classes=6, dropout=0.5):
         """
         基于LSTM的睡眠分期分类器
         Args:
@@ -15,8 +30,16 @@ class SleepStageClassifier(nn.Module):
         """
         super(SleepStageClassifier, self).__init__()
 
+        # 增加输入特征的处理
+        self.feature_extractor = nn.Sequential(
+            nn.Linear(input_size, hidden_size),
+            nn.LayerNorm(hidden_size),
+            nn.ReLU(),
+            nn.Dropout(0.2)
+        )
+        
         self.lstm = nn.LSTM(
-            input_size=input_size,
+            input_size=hidden_size,
             hidden_size=hidden_size,
             num_layers=num_layers,
             batch_first=True,
@@ -24,27 +47,53 @@ class SleepStageClassifier(nn.Module):
             bidirectional=True,
         )
 
-        self.dropout = nn.Dropout(dropout)
+        self.attention = AttentionLayer(hidden_size)
 
-        # 双向LSTM，所以hidden_size要乘2
-        self.fc1 = nn.Linear(hidden_size * 2, hidden_size)
-        self.relu = nn.ReLU()
-        self.batch_norm = nn.BatchNorm1d(hidden_size)
-        self.fc2 = nn.Linear(hidden_size, num_classes)
+        # 增加更深的全连接层
+        self.classifier = nn.Sequential(
+            nn.Linear(hidden_size * 2, hidden_size * 2),
+            nn.BatchNorm1d(hidden_size * 2),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_size * 2, hidden_size),
+            nn.BatchNorm1d(hidden_size),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_size, hidden_size // 2),
+            nn.BatchNorm1d(hidden_size // 2),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_size // 2, num_classes)
+        )
+
+        # 添加权重初始化
+        self.apply(self._init_weights)
+
+    def _init_weights(self, module):
+        if isinstance(module, nn.Linear):
+            nn.init.kaiming_normal_(module.weight, mode='fan_out', nonlinearity='relu')
+            if module.bias is not None:
+                nn.init.constant_(module.bias, 0)
+        elif isinstance(module, nn.LSTM):
+            for name, param in module.named_parameters():
+                if 'weight' in name:
+                    nn.init.orthogonal_(param)
+                elif 'bias' in name:
+                    nn.init.constant_(param, 0)
+        elif isinstance(module, (nn.BatchNorm1d, nn.LayerNorm)):
+            nn.init.constant_(module.weight, 1)
+            nn.init.constant_(module.bias, 0)
 
     def forward(self, x):
-        # x shape: (batch_size, sequence_length, input_size)
-
-        # LSTM forward
+        # 特征提取
+        x = self.feature_extractor(x)
+        
+        # LSTM处理
         lstm_out, _ = self.lstm(x)
-        # 只使用序列的最后一个输出
-        lstm_out = lstm_out[:, -1, :]
-
-        # 全连接层
-        out = self.fc1(lstm_out)
-        out = self.relu(out)
-        out = self.batch_norm(out)
-        out = self.dropout(out)
-        out = self.fc2(out)
-
+        
+        # 注意力机制
+        context_vector, _ = self.attention(lstm_out)
+        
+        # 分类
+        out = self.classifier(context_vector)
         return out

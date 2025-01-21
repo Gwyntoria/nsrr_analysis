@@ -1,10 +1,15 @@
+import os
+
 import matplotlib.pyplot as plt
+import numpy as np
 import seaborn as sns
 import torch
-from sklearn.metrics import classification_report, confusion_matrix
+import torch.nn.functional as F
+from sklearn.metrics import average_precision_score, classification_report, confusion_matrix, precision_recall_curve, roc_auc_score
+from tqdm import tqdm
 
 
-def plot_training_history(train_losses, val_losses):
+def plot_training_history(train_losses, val_losses, save_dir="../../plots"):
     """绘制训练和验证损失曲线"""
     plt.figure(figsize=(10, 6))
     plt.plot(train_losses, label="Training Loss")
@@ -14,12 +19,72 @@ def plot_training_history(train_losses, val_losses):
     plt.ylabel("Loss")
     plt.legend()
     plt.grid(True)
-    plt.show()
+
+    # 创建保存目录
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
+    # 保存图片
+    plt.savefig(os.path.join(save_dir, "training_history.png"))
+    plt.close()
 
 
-def evaluate_model(model, test_loader, device):
+def evaluate_model(model, test_loader, device, save_dir="../../plots"):
     """评估模型性能"""
     model.eval()
+    all_preds = []
+    all_probs = []  # 存储预测概率
+    all_labels = []
+    
+    with torch.no_grad():
+        for features, labels in tqdm(test_loader, desc='Evaluating'):
+            features = features.float().to(device)
+            labels = labels.to(device)
+            outputs = model(features)
+            probs = F.softmax(outputs, dim=1)
+            _, predicted = torch.max(outputs.data, 1)
+            
+            all_probs.extend(probs.cpu().numpy())
+            all_preds.extend(predicted.cpu().numpy())
+            all_labels.extend(labels.cpu().numpy())
+    
+    all_probs = np.array(all_probs)
+    all_preds = np.array(all_preds)
+    all_labels = np.array(all_labels)
+    
+    # 计算每个类别的ROC AUC
+    roc_auc = {}
+    for i in range(6):  # 6个睡眠阶段
+        roc_auc[f'Stage_{i}'] = roc_auc_score(
+            (all_labels == i).astype(int),
+            all_probs[:, i],
+            average='macro'
+        )
+    
+    # 计算平均精确率
+    avg_precision = {}
+    for i in range(6):
+        avg_precision[f'Stage_{i}'] = average_precision_score(
+            (all_labels == i).astype(int),
+            all_probs[:, i]
+        )
+    
+    # 绘制每个类别的PR曲线
+    plt.figure(figsize=(12, 8))
+    for i in range(6):
+        precision, recall, _ = precision_recall_curve(
+            (all_labels == i).astype(int),
+            all_probs[:, i]
+        )
+        plt.plot(recall, precision, label=f'Stage {i} (AP={avg_precision[f"Stage_{i}"]:.2f})')
+    
+    plt.title('Precision-Recall Curves')
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
+    plt.legend()
+    plt.savefig(os.path.join(save_dir, 'pr_curves.png'))
+    plt.close()
+    
     correct = 0
     total = 0
     all_preds = []
@@ -45,6 +110,10 @@ def evaluate_model(model, test_loader, device):
     print("\nClassification Report:")
     print(classification_report(all_labels, all_preds, target_names=stage_names))
 
+    # 创建保存目录
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
     # 绘制混淆矩阵
     cm = confusion_matrix(all_labels, all_preds)
     plt.figure(figsize=(12, 10))
@@ -52,6 +121,9 @@ def evaluate_model(model, test_loader, device):
     plt.title("Confusion Matrix")
     plt.ylabel("True Label")
     plt.xlabel("Predicted Label")
-    plt.show()
+
+    # 保存混淆矩阵图片
+    plt.savefig(os.path.join(save_dir, "confusion_matrix.png"))
+    plt.close()
 
     return correct / total

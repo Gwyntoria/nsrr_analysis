@@ -13,17 +13,19 @@ logger = logging.getLogger(__name__)
 
 
 class SleepDataset(Dataset):
-    def __init__(self, data_dir, sequence_length=32):
+    def __init__(self, data_dir, sequence_length=32, augment=True):
         """
         初始化数据集
         Args:
             data_dir: 包含所有睡眠数据CSV文件的目录路径
             sequence_length: 序列长度，即每个样本包含多少个时间步
+            augment: 是否进行数据增强
         """
         logger.info(f"Initializing SleepDataset with directory: {data_dir}")
         logger.info(f"Sequence length: {sequence_length}")
 
         self.sequence_length = sequence_length
+        self.augment = augment
         self.data = self.load_all_data(data_dir)
         self.process_data()
         self.prepare_sequences()
@@ -168,3 +170,43 @@ class SleepDataset(Dataset):
         sequence = self.sequences[idx]
         label = self.labels[idx]
         return sequence, label
+
+    def _augment_sequence(self, sequence):
+        """增强的数据增强方法"""
+        if not self.augment:
+            return sequence
+        
+        try:
+            # 随机添加噪声
+            if np.random.random() < 0.5:
+                noise_level = np.random.uniform(0.005, 0.015)
+                noise = np.random.normal(0, noise_level, sequence.shape)
+                sequence = sequence + noise
+            
+            # 随机时间扭曲
+            if np.random.random() < 0.3:
+                scale = np.random.uniform(0.85, 1.15)
+                time_steps = np.arange(len(sequence))
+                new_time_steps = np.linspace(0, len(sequence)-1, len(sequence)) * scale
+                
+                warped_sequence = np.zeros_like(sequence)
+                for i in range(sequence.shape[1]):
+                    warped_sequence[:, i] = np.interp(
+                        time_steps,
+                        new_time_steps,
+                        sequence[:, i]
+                    )
+                sequence = warped_sequence
+            
+            # 添加随机掩码
+            if np.random.random() < 0.2:
+                mask_length = np.random.randint(1, 5)
+                start_idx = np.random.randint(0, len(sequence) - mask_length)
+                sequence[start_idx:start_idx + mask_length] = 0
+            
+            return sequence
+            
+        except Exception as e:
+            logger.error(f"Error in data augmentation: {str(e)}")
+            logger.error(f"Sequence shape: {sequence.shape}")
+            raise e
