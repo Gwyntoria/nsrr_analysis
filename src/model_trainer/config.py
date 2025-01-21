@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 # Logging configuration
-LOG_LEVEL = logging.DEBUG
+LOG_LEVEL = logging.INFO
 
 # Path configuration
 BASE_DIR = Path(__file__).resolve().parent.parent.parent

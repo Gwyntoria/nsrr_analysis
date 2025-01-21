@@ -12,7 +12,7 @@ from tqdm import tqdm
 from utils import evaluate_model, plot_training_history
 
 # Configure logging
-logger = setup_logger(name="train", log_file="training.log", level=LOG_LEVEL)
+logger = setup_logger(name=__name__, log_file="training.log", level=LOG_LEVEL)
 
 
 @dataclass

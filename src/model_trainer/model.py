@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from config import LOG_LEVEL, setup_logger
 
 # 配置日志
-logger = setup_logger(name="model", log_file="training.log", level=LOG_LEVEL)
+logger = setup_logger(name=__name__, log_file="training.log", level=LOG_LEVEL)
 
 
 class AttentionLayer(nn.Module):
