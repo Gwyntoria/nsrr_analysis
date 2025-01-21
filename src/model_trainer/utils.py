@@ -52,21 +52,25 @@ def evaluate_model(model, test_loader, device, save_dir="../../plots"):
     all_preds = np.array(all_preds)
     all_labels = np.array(all_labels)
 
+    # 修改类别名称
+    stage_names = ["Wake", "Light", "Deep", "REM"]  # 更新为4分类的名称
+
     # 计算每个类别的ROC AUC
     roc_auc = {}
-    for i in range(6):  # 6个睡眠阶段
+    for i in range(4):  # 修改为4个类别
         roc_auc[f"Stage_{i}"] = roc_auc_score((all_labels == i).astype(int), all_probs[:, i], average="macro")
 
     # 计算平均精确率
     avg_precision = {}
-    for i in range(6):
+    for i in range(4):  # 修改为4个类别
         avg_precision[f"Stage_{i}"] = average_precision_score((all_labels == i).astype(int), all_probs[:, i])
 
     # 绘制每个类别的PR曲线
     plt.figure(figsize=(12, 8))
-    for i in range(6):
+    stage_names_dict = {0: "Wake", 1: "Light", 2: "Deep", 3: "REM"}
+    for i in range(4):  # 修改为4个类别
         precision, recall, _ = precision_recall_curve((all_labels == i).astype(int), all_probs[:, i])
-        plt.plot(recall, precision, label=f"Stage {i} (AP={avg_precision[f'Stage_{i}']:.2f})")
+        plt.plot(recall, precision, label=f"{stage_names_dict[i]} (AP={avg_precision[f'Stage_{i}']:.2f})")
 
     plt.title("Precision-Recall Curves")
     plt.xlabel("Recall")
@@ -92,9 +96,6 @@ def evaluate_model(model, test_loader, device, save_dir="../../plots"):
 
             all_preds.extend(predicted.cpu().numpy())
             all_labels.extend(labels.cpu().numpy())
-
-    # 修改类别名称
-    stage_names = ["Wake", "Stage 1", "Stage 2", "Stage 3", "Stage 4", "REM"]
 
     # 打印详细的评估报告
     print("\nClassification Report:")

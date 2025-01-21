@@ -22,7 +22,7 @@ class AttentionLayer(nn.Module):
 
 
 class SleepStageClassifier(nn.Module):
-    def __init__(self, input_size=7, hidden_size=256, num_layers=3, num_classes=6, dropout=0.5):
+    def __init__(self, input_size=7, hidden_size=256, num_layers=3, num_classes=4, dropout=0.5):
         """
         基于LSTM的睡眠分期分类器
         Args:
@@ -30,7 +30,7 @@ class SleepStageClassifier(nn.Module):
                        hour_sin, hour_cos, minute_sin, minute_cos)
             hidden_size: LSTM隐藏层大小
             num_layers: LSTM层数
-            num_classes: 分类数量（6个睡眠分期）
+            num_classes: 分类数量（4个睡眠分期：wake, light, deep, rem）
             dropout: dropout比率
         """
         super(SleepStageClassifier, self).__init__()

@@ -26,6 +26,7 @@ class TrainingConfig:
     sequence_length: int = 32
     hidden_size: int = 128
     num_layers: int = 3
+    num_classes: int = 4  # 添加类别数量参数
 
 
 def train_model(config: TrainingConfig, data_dir=DATA_DIR, model_save_dir=MODEL_SAVE_DIR):
@@ -68,7 +69,11 @@ def train_model(config: TrainingConfig, data_dir=DATA_DIR, model_save_dir=MODEL_
         val_loader = DataLoader(val_dataset, batch_size=config.batch_size)
 
         # 初始化模型
-        model = SleepStageClassifier(hidden_size=config.hidden_size, num_layers=config.num_layers).to(device)
+        model = SleepStageClassifier(
+            hidden_size=config.hidden_size, 
+            num_layers=config.num_layers,
+            num_classes=config.num_classes
+        ).to(device)
 
         # 计算类别权重
         labels = [label for _, label in train_dataset]

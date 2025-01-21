@@ -90,23 +90,24 @@ class SleepDataset(Dataset):
         removed_rows = initial_size - len(self.data)
         logger.info(f"Removed {removed_rows} invalid rows ({removed_rows / initial_size * 100:.2f}% of data)")
 
-        # 将睡眠分期映射到数值
-        logger.debug("Mapping sleep stages")
+        # 修改睡眠分期映射到新的4分类
+        logger.debug("Mapping sleep stages to 4 classes")
         stage_mapping = {
-            0: 0,  # wake-stage
-            1: 1,  # sleep-stage1
-            2: 2,  # sleep-stage2
-            3: 3,  # sleep-stage3
-            4: 4,  # sleep-stage4
-            5: 5,  # REM
+            0: 0,  # wake -> wake (0)
+            1: 1,  # sleep-stage1 -> light (1)
+            2: 1,  # sleep-stage2 -> light (1)
+            3: 2,  # sleep-stage3 -> deep (2)
+            4: 2,  # sleep-stage4 -> deep (2)
+            5: 3,  # REM -> rem (3)
         }
         self.data["sleep_stage"] = self.data["sleep_stage"].map(stage_mapping)
 
         # 检查睡眠阶段分布
         stage_dist = self.data["sleep_stage"].value_counts()
+        stage_names = {0: "Wake", 1: "Light", 2: "Deep", 3: "REM"}
         logger.info("Sleep stage distribution:")
         for stage, count in stage_dist.items():
-            logger.info(f"Stage {int(stage)}: {int(count)} samples ({count / len(self.data) * 100:.2f}%)")
+            logger.info(f"{stage_names[stage]}: {int(count)} samples ({count / len(self.data) * 100:.2f}%)")
 
     def prepare_sequences(self):
         """准备序列数据"""
