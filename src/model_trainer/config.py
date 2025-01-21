@@ -14,6 +14,15 @@ MODEL_SAVE_DIR = os.path.join(BASE_DIR, "models")
 MODEL_VERSION = "v0.1"
 MODEL_NAME = f"ssc_model_{MODEL_VERSION}.pth"
 
+# Output directories
+PLOTS_DIR = os.path.join(BASE_DIR, "plots", MODEL_VERSION)
+LOGS_DIR = os.path.join(BASE_DIR, "logs", MODEL_VERSION)
+
+def setup_directories():
+    """创建必要的目录结构"""
+    directories = [DATA_DIR, MODEL_SAVE_DIR, PLOTS_DIR, LOGS_DIR]
+    for directory in directories:
+        os.makedirs(directory, exist_ok=True)
 
 def setup_logger(name=None, log_file=None, level=logging.DEBUG):
     """配置并返回一个 logger 对象
@@ -42,6 +51,8 @@ def setup_logger(name=None, log_file=None, level=logging.DEBUG):
 
         # 文件日志处理器（可选）
         if log_file:
+            # 如果提供了日志文件路径，确保其父目录存在
+            os.makedirs(os.path.dirname(os.path.abspath(log_file)), exist_ok=True)
             file_handler = logging.FileHandler(log_file, encoding="utf-8")
             file_handler.setFormatter(formatter)
             logger.addHandler(file_handler)

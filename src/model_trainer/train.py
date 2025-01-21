@@ -10,10 +10,14 @@ from utils import evaluate_model, plot_training_history
 
 from data_loader import SleepDataset
 from model import SleepStageClassifier
-from config import DATA_DIR, LOG_LEVEL, MODEL_NAME, MODEL_SAVE_DIR, setup_logger  # Updated imports
+from config import (DATA_DIR, LOG_LEVEL, MODEL_NAME, MODEL_SAVE_DIR, 
+                   PLOTS_DIR, LOGS_DIR, setup_directories, setup_logger)
 
-# Configure logging
-logger = setup_logger(name=__name__, log_file="training.log", level=LOG_LEVEL)
+# Configure logging and setup directories
+setup_directories()
+logger = setup_logger(name=__name__, 
+                     log_file=os.path.join(LOGS_DIR, "training.log"), 
+                     level=LOG_LEVEL)
 
 
 @dataclass
@@ -199,7 +203,7 @@ def train_model(config: TrainingConfig, data_dir=DATA_DIR, model_save_dir=MODEL_
             logger.info(f"Validation Loss: {avg_val_loss:.4f}")
 
         # 绘制训练历史
-        plot_training_history(train_losses, val_losses)
+        plot_training_history(train_losses, val_losses, save_dir=PLOTS_DIR)
 
         # 评估最终模型
         accuracy = evaluate_model(model, val_loader, device)

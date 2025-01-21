@@ -8,8 +8,10 @@ import torch.nn.functional as F
 from sklearn.metrics import average_precision_score, classification_report, confusion_matrix, precision_recall_curve, roc_auc_score
 from tqdm import tqdm
 
+from config import PLOTS_DIR
 
-def plot_training_history(train_losses, val_losses, save_dir="../../plots"):
+
+def plot_training_history(train_losses, val_losses, save_dir=PLOTS_DIR):
     """绘制训练和验证损失曲线"""
     plt.figure(figsize=(10, 6))
     plt.plot(train_losses, label="Training Loss")
@@ -20,16 +22,15 @@ def plot_training_history(train_losses, val_losses, save_dir="../../plots"):
     plt.legend()
     plt.grid(True)
 
-    # 创建保存目录
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
+    # 确保保存目录存在
+    os.makedirs(save_dir, exist_ok=True)
 
     # 保存图片
     plt.savefig(os.path.join(save_dir, "training_history.png"))
     plt.close()
 
 
-def evaluate_model(model, test_loader, device, save_dir="../../plots"):
+def evaluate_model(model, test_loader, device, save_dir=PLOTS_DIR):
     """评估模型性能"""
     model.eval()
     all_preds = []
@@ -101,9 +102,8 @@ def evaluate_model(model, test_loader, device, save_dir="../../plots"):
     print("\nClassification Report:")
     print(classification_report(all_labels, all_preds, target_names=stage_names))
 
-    # 创建保存目录
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
+    # 确保保存目录存在
+    os.makedirs(save_dir, exist_ok=True)
 
     # 绘制混淆矩阵
     cm = confusion_matrix(all_labels, all_preds)
