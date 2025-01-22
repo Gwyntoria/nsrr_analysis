@@ -11,25 +11,39 @@ from utils import evaluate_model, plot_training_history
 
 from data_loader import SleepDataset
 from model import SleepStageClassifier
-from config import DATA_DIR, LOG_LEVEL, MODEL_NAME, MODEL_SAVE_DIR, PLOTS_DIR, LOGS_DIR, setup_directories, setup_logger
+from config import (
+    DATA_DIR,
+    LOG_LEVEL,
+    MODEL_NAME,
+    MODEL_SAVE_DIR,
+    PLOTS_DIR,
+    LOGS_DIR,
+    setup_directories,
+    setup_logger,
+    MODEL_CONFIG,
+)
 
 # Configure logging and setup directories
 setup_directories()
-logger = setup_logger(name=__name__, log_file=os.path.join(LOGS_DIR, "training.log"), level=LOG_LEVEL)
+logger = setup_logger(
+    name=__name__,
+    log_file=os.path.join(LOGS_DIR, "training.log"),
+    level=LOG_LEVEL,
+)
 
 
 @dataclass
 class TrainingConfig:
-    epochs: int = 200
-    batch_size: int = 64
-    learning_rate: float = 0.0005
-    weight_decay: float = 0.01
-    patience: int = 20
-    lr_patience: int = 5
-    sequence_length: int = 32
-    hidden_size: int = 128
-    num_layers: int = 3
-    num_classes: int = 4  # 添加类别数量参数
+    epochs: int = MODEL_CONFIG["epochs"]
+    batch_size: int = MODEL_CONFIG["batch_size"]
+    learning_rate: float = MODEL_CONFIG["learning_rate"]
+    weight_decay: float = MODEL_CONFIG["weight_decay"]
+    patience: int = MODEL_CONFIG["patience"]
+    lr_patience: int = MODEL_CONFIG["lr_patience"]
+    sequence_length: int = MODEL_CONFIG["sequence_length"]
+    hidden_size: int = MODEL_CONFIG["hidden_size"]
+    num_layers: int = MODEL_CONFIG["num_layers"]
+    num_classes: int = MODEL_CONFIG["num_classes"]
 
 
 def compute_transition_loss(transition_matrix, prev_labels, current_labels):
@@ -48,7 +62,9 @@ def compute_transition_loss(transition_matrix, prev_labels, current_labels):
     return loss / batch_size
 
 
-def train_model(config: TrainingConfig, data_dir=DATA_DIR, model_save_dir=MODEL_SAVE_DIR):
+def train_model(
+    config: TrainingConfig, data_dir=DATA_DIR, model_save_dir=MODEL_SAVE_DIR
+):
     try:
         # 设置设备
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -74,7 +90,9 @@ def train_model(config: TrainingConfig, data_dir=DATA_DIR, model_save_dir=MODEL_
         wandb.init(project="sleep-stage-classification")
 
         # 准备数据
-        dataset = SleepDataset(data_dir, sequence_length=config.sequence_length, augment=True)
+        dataset = SleepDataset(
+            data_dir, sequence_length=config.sequence_length, augment=True
+        )
 
         # 计算划分大小
         total_size = len(dataset)
@@ -82,13 +100,21 @@ def train_model(config: TrainingConfig, data_dir=DATA_DIR, model_save_dir=MODEL_
         val_size = total_size - train_size
 
         # 直接划分数据集
-        train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
+        train_dataset, val_dataset = random_split(
+            dataset, [train_size, val_size]
+        )
 
-        train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
+        train_loader = DataLoader(
+            train_dataset, batch_size=config.batch_size, shuffle=True
+        )
         val_loader = DataLoader(val_dataset, batch_size=config.batch_size)
 
         # 初始化模型
-        model = SleepStageClassifier(hidden_size=config.hidden_size, num_layers=config.num_layers, num_classes=config.num_classes).to(device)
+        model = SleepStageClassifier(
+            hidden_size=config.hidden_size,
+            num_layers=config.num_layers,
+            num_classes=config.num_classes,
+        ).to(device)
 
         # 计算类别权重
         labels = [label for _, label in train_dataset]
@@ -137,13 +163,17 @@ def train_model(config: TrainingConfig, data_dir=DATA_DIR, model_save_dir=MODEL_
             total_train_loss = 0
 
             # 添加进度条
-            train_pbar = tqdm(train_loader, desc=f"Epoch {epoch + 1}/{config.epochs} [Train]")
+            train_pbar = tqdm(
+                train_loader, desc=f"Epoch {epoch + 1}/{config.epochs} [Train]"
+            )
             for features, labels in train_pbar:
                 features = features.float().to(device)
                 labels = labels.long().to(device)
 
                 # 获取前一个状态（从特征的最后一个维度）
-                prev_states = features[:, -1, -1].long()  # 假设prev_sleep_stage是最后一个特征
+                prev_states = features[
+                    :, -1, -1
+                ].long()  # 假设prev_sleep_stage是最后一个特征
 
                 optimizer.zero_grad()
                 main_output, transition_matrix, _ = model(features)
@@ -152,10 +182,14 @@ def train_model(config: TrainingConfig, data_dir=DATA_DIR, model_save_dir=MODEL_
                 classification_loss = criterion(main_output, labels)
 
                 # 计算状态转移损失
-                transition_loss = compute_transition_loss(transition_matrix, prev_states, labels)
+                transition_loss = compute_transition_loss(
+                    transition_matrix, prev_states, labels
+                )
 
                 # 总损失
-                loss = classification_loss + 0.1 * transition_loss  # 可以调整权重
+                loss = (
+                    classification_loss + 0.1 * transition_loss
+                )  # 可以调整权重
 
                 loss.backward()
                 optimizer.step()
@@ -164,32 +198,41 @@ def train_model(config: TrainingConfig, data_dir=DATA_DIR, model_save_dir=MODEL_
                 train_pbar.set_postfix({"loss": loss.item()})
 
                 # 记录到wandb
-                wandb.log({"batch_loss": loss.item(), "learning_rate": scheduler.get_last_lr()[0]})
+                wandb.log(
+                    {
+                        "batch_loss": loss.item(),
+                        "learning_rate": scheduler.get_last_lr()[0],
+                    }
+                )
 
             # 验证
             model.eval()
             total_val_loss = 0
-            val_pbar = tqdm(val_loader, desc=f"Epoch {epoch + 1}/{config.epochs} [Val]")
+            val_pbar = tqdm(
+                val_loader, desc=f"Epoch {epoch + 1}/{config.epochs} [Val]"
+            )
             with torch.no_grad():
                 for features, labels in val_pbar:
                     features = features.float().to(device)
                     labels = labels.long().to(device)
-                    
+
                     # 获取前一个状态
                     prev_states = features[:, -1, -1].long()
-                    
+
                     # 获取模型输出
                     main_output, transition_matrix, _ = model(features)
-                    
+
                     # 计算分类损失
                     classification_loss = criterion(main_output, labels)
-                    
+
                     # 计算状态转移损失
-                    transition_loss = compute_transition_loss(transition_matrix, prev_states, labels)
-                    
+                    transition_loss = compute_transition_loss(
+                        transition_matrix, prev_states, labels
+                    )
+
                     # 计算总损失
                     loss = classification_loss + 0.1 * transition_loss
-                    
+
                     total_val_loss += loss.item()
                     val_pbar.set_postfix({"val_loss": loss.item()})
 
@@ -203,7 +246,9 @@ def train_model(config: TrainingConfig, data_dir=DATA_DIR, model_save_dir=MODEL_
                 best_val_loss = avg_val_loss
                 early_stopping_counter = 0
                 # 保存最佳模型
-                torch.save(model.state_dict(), os.path.join(model_save_dir, MODEL_NAME))
+                torch.save(
+                    model.state_dict(), os.path.join(model_save_dir, MODEL_NAME)
+                )
             else:
                 early_stopping_counter += 1
 
@@ -222,14 +267,18 @@ def train_model(config: TrainingConfig, data_dir=DATA_DIR, model_save_dir=MODEL_
                 for param_group in optimizer.param_groups:
                     param_group["lr"] *= 0.5
                 lr_counter = 0
-                logger.info(f"Reducing learning rate to {optimizer.param_groups[0]['lr']}")
+                logger.info(
+                    f"Reducing learning rate to {optimizer.param_groups[0]['lr']}"
+                )
 
             # 记录更多指标
-            wandb.log({
-                "epoch": epoch,
-                "train_loss": avg_train_loss,
-                "val_loss": avg_val_loss,
-            })
+            wandb.log(
+                {
+                    "epoch": epoch,
+                    "train_loss": avg_train_loss,
+                    "val_loss": avg_val_loss,
+                }
+            )
 
             logger.info(f"Epoch [{epoch + 1}/{config.epochs}]")
             logger.info(f"Training Loss: {avg_train_loss:.4f}")
@@ -294,7 +343,9 @@ def validate_model(model, val_loader, criterion, device):
             all_labels.extend(labels.cpu().numpy())
 
     avg_val_loss = total_val_loss / len(val_loader)
-    accuracy = sum(p == label for p, label in zip(all_preds, all_labels)) / len(all_preds)
+    accuracy = sum(p == label for p, label in zip(all_preds, all_labels)) / len(
+        all_preds
+    )
 
     return avg_val_loss, accuracy
 

@@ -14,15 +14,34 @@ MODEL_SAVE_DIR = os.path.join(BASE_DIR, "models")
 MODEL_VERSION = "v0.1"
 MODEL_NAME = f"ssc_model_{MODEL_VERSION}.pth"
 
+# Model hyperparameters
+MODEL_CONFIG = {
+    "input_size": 5,
+    "hidden_size": 128,
+    "num_layers": 3,
+    "num_classes": 4,
+    "dropout": 0.5,
+    "epochs": 100,
+    "batch_size": 64,
+    "learning_rate": 0.0005,
+    "weight_decay": 0.01,
+    "patience": 10,
+    "lr_patience": 5,
+    "sequence_length": 32,
+    "hidden_size": 128,
+}
+
 # Output directories
 PLOTS_DIR = os.path.join(BASE_DIR, "plots", MODEL_VERSION)
 LOGS_DIR = os.path.join(BASE_DIR, "logs", MODEL_VERSION)
+
 
 def setup_directories():
     """创建必要的目录结构"""
     directories = [DATA_DIR, MODEL_SAVE_DIR, PLOTS_DIR, LOGS_DIR]
     for directory in directories:
         os.makedirs(directory, exist_ok=True)
+
 
 def setup_logger(name=None, log_file=None, level=logging.DEBUG):
     """配置并返回一个 logger 对象
@@ -36,7 +55,9 @@ def setup_logger(name=None, log_file=None, level=logging.DEBUG):
         Logger: 配置好的 logger 对象
     """
     # 创建日志格式
-    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
 
     # 获取 logger
     logger = logging.getLogger(name)
@@ -52,7 +73,9 @@ def setup_logger(name=None, log_file=None, level=logging.DEBUG):
         # 文件日志处理器（可选）
         if log_file:
             # 如果提供了日志文件路径，确保其父目录存在
-            os.makedirs(os.path.dirname(os.path.abspath(log_file)), exist_ok=True)
+            os.makedirs(
+                os.path.dirname(os.path.abspath(log_file)), exist_ok=True
+            )
             file_handler = logging.FileHandler(log_file, encoding="utf-8")
             file_handler.setFormatter(formatter)
             logger.addHandler(file_handler)
