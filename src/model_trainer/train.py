@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import wandb  # 用于实验跟踪
 from torch.utils.data import DataLoader, random_split
 from tqdm import tqdm
@@ -10,14 +11,11 @@ from utils import evaluate_model, plot_training_history
 
 from data_loader import SleepDataset
 from model import SleepStageClassifier
-from config import (DATA_DIR, LOG_LEVEL, MODEL_NAME, MODEL_SAVE_DIR, 
-                   PLOTS_DIR, LOGS_DIR, setup_directories, setup_logger)
+from config import DATA_DIR, LOG_LEVEL, MODEL_NAME, MODEL_SAVE_DIR, PLOTS_DIR, LOGS_DIR, setup_directories, setup_logger
 
 # Configure logging and setup directories
 setup_directories()
-logger = setup_logger(name=__name__, 
-                     log_file=os.path.join(LOGS_DIR, "training.log"), 
-                     level=LOG_LEVEL)
+logger = setup_logger(name=__name__, log_file=os.path.join(LOGS_DIR, "training.log"), level=LOG_LEVEL)
 
 
 @dataclass
@@ -32,6 +30,22 @@ class TrainingConfig:
     hidden_size: int = 128
     num_layers: int = 3
     num_classes: int = 4  # 添加类别数量参数
+
+
+def compute_transition_loss(transition_matrix, prev_labels, current_labels):
+    batch_size = transition_matrix.size(0)
+    # 获取每个样本的转移概率
+    transition_probs = F.log_softmax(transition_matrix, dim=2)
+
+    # 计算实际发生的转移的负对数似然
+    loss = 0
+    for i in range(batch_size):
+        prev_state = prev_labels[i]
+        current_state = current_labels[i]
+        if prev_state != -1:  # 只在有前一个状态时计算转移损失
+            loss -= transition_probs[i, prev_state, current_state]
+
+    return loss / batch_size
 
 
 def train_model(config: TrainingConfig, data_dir=DATA_DIR, model_save_dir=MODEL_SAVE_DIR):
@@ -128,22 +142,29 @@ def train_model(config: TrainingConfig, data_dir=DATA_DIR, model_save_dir=MODEL_
                 features = features.float().to(device)
                 labels = labels.long().to(device)
 
+                # 获取前一个状态（从特征的最后一个维度）
+                prev_states = features[:, -1, -1].long()  # 假设prev_sleep_stage是最后一个特征
+
                 optimizer.zero_grad()
-                outputs = model(features)
-                loss = criterion(outputs, labels)
+                main_output, transition_matrix, _ = model(features)
+
+                # 计算分类损失
+                classification_loss = criterion(main_output, labels)
+
+                # 计算状态转移损失
+                transition_loss = compute_transition_loss(transition_matrix, prev_states, labels)
+
+                # 总损失
+                loss = classification_loss + 0.1 * transition_loss  # 可以调整权重
+
                 loss.backward()
-
-                # 记录梯度范数
-                grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-
                 optimizer.step()
-                scheduler.step()
 
                 total_train_loss += loss.item()
                 train_pbar.set_postfix({"loss": loss.item()})
 
                 # 记录到wandb
-                wandb.log({"batch_loss": loss.item(), "learning_rate": scheduler.get_last_lr()[0], "gradient_norm": grad_norm})
+                wandb.log({"batch_loss": loss.item(), "learning_rate": scheduler.get_last_lr()[0]})
 
             # 验证
             model.eval()
@@ -153,10 +174,24 @@ def train_model(config: TrainingConfig, data_dir=DATA_DIR, model_save_dir=MODEL_
                 for features, labels in val_pbar:
                     features = features.float().to(device)
                     labels = labels.long().to(device)
-
-                    outputs = model(features)
-                    loss = criterion(outputs, labels)
+                    
+                    # 获取前一个状态
+                    prev_states = features[:, -1, -1].long()
+                    
+                    # 获取模型输出
+                    main_output, transition_matrix, _ = model(features)
+                    
+                    # 计算分类损失
+                    classification_loss = criterion(main_output, labels)
+                    
+                    # 计算状态转移损失
+                    transition_loss = compute_transition_loss(transition_matrix, prev_states, labels)
+                    
+                    # 计算总损失
+                    loss = classification_loss + 0.1 * transition_loss
+                    
                     total_val_loss += loss.item()
+                    val_pbar.set_postfix({"val_loss": loss.item()})
 
             avg_train_loss = total_train_loss / len(train_loader)
             avg_val_loss = total_val_loss / len(val_loader)
@@ -190,13 +225,11 @@ def train_model(config: TrainingConfig, data_dir=DATA_DIR, model_save_dir=MODEL_
                 logger.info(f"Reducing learning rate to {optimizer.param_groups[0]['lr']}")
 
             # 记录更多指标
-            wandb.log(
-                {
-                    "epoch": epoch,
-                    "train_loss": avg_train_loss,
-                    "val_loss": avg_val_loss,
-                }
-            )
+            wandb.log({
+                "epoch": epoch,
+                "train_loss": avg_train_loss,
+                "val_loss": avg_val_loss,
+            })
 
             logger.info(f"Epoch [{epoch + 1}/{config.epochs}]")
             logger.info(f"Training Loss: {avg_train_loss:.4f}")

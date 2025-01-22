@@ -22,22 +22,23 @@ class AttentionLayer(nn.Module):
 
 
 class SleepStageClassifier(nn.Module):
-    def __init__(self, input_size=7, hidden_size=256, num_layers=3, num_classes=4, dropout=0.5):
+    def __init__(self, input_size=5, hidden_size=256, num_layers=3, num_classes=4, dropout=0.5):
         """
         基于LSTM的睡眠分期分类器
         Args:
-            input_size: 输入特征维度 (7个特征: heart_rate, heart_rate_diff, heart_rate_diff2,
-                       hour_sin, hour_cos, minute_sin, minute_cos)
+            input_size: 输入特征维度 (5个特征: relative_time, heart_rate, heart_rate_diff,
+                       heart_rate_ma, prev_sleep_stage)
             hidden_size: LSTM隐藏层大小
             num_layers: LSTM层数
-            num_classes: 分类数量（4个睡眠分期：wake, light, deep, rem）
+            num_classes: 分类数量（4个睡眠分期）
             dropout: dropout比率
         """
         super(SleepStageClassifier, self).__init__()
 
-        # 增加输入特征的处理
+        # 特征提取层
         self.feature_extractor = nn.Sequential(nn.Linear(input_size, hidden_size), nn.LayerNorm(hidden_size), nn.ReLU(), nn.Dropout(0.2))
 
+        # 双向LSTM层
         self.lstm = nn.LSTM(
             input_size=hidden_size,
             hidden_size=hidden_size,
@@ -47,44 +48,20 @@ class SleepStageClassifier(nn.Module):
             bidirectional=True,
         )
 
+        # 注意力层
         self.attention = AttentionLayer(hidden_size)
 
-        # 增加更深的全连接层
+        # 分类层
         self.classifier = nn.Sequential(
-            nn.Linear(hidden_size * 2, hidden_size * 2),
-            nn.BatchNorm1d(hidden_size * 2),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_size * 2, hidden_size),
-            nn.BatchNorm1d(hidden_size),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_size, hidden_size // 2),
-            nn.BatchNorm1d(hidden_size // 2),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_size // 2, num_classes),
+            nn.Linear(hidden_size * 2, hidden_size), nn.BatchNorm1d(hidden_size), nn.ReLU(), nn.Dropout(dropout), nn.Linear(hidden_size, num_classes)
         )
 
-        # 添加权重初始化
-        self.apply(self._init_weights)
-
-    def _init_weights(self, module):
-        if isinstance(module, nn.Linear):
-            nn.init.kaiming_normal_(module.weight, mode="fan_out", nonlinearity="relu")
-            if module.bias is not None:
-                nn.init.constant_(module.bias, 0)
-        elif isinstance(module, nn.LSTM):
-            for name, param in module.named_parameters():
-                if "weight" in name:
-                    nn.init.orthogonal_(param)
-                elif "bias" in name:
-                    nn.init.constant_(param, 0)
-        elif isinstance(module, (nn.BatchNorm1d, nn.LayerNorm)):
-            nn.init.constant_(module.weight, 1)
-            nn.init.constant_(module.bias, 0)
+        # 添加状态转移预测层
+        self.transition_predictor = nn.Linear(hidden_size * 2, num_classes * num_classes)
 
     def forward(self, x):
+        batch_size = x.size(0)
+
         # 特征提取
         x = self.feature_extractor(x)
 
@@ -92,8 +69,13 @@ class SleepStageClassifier(nn.Module):
         lstm_out, _ = self.lstm(x)
 
         # 注意力机制
-        context_vector, _ = self.attention(lstm_out)
+        context_vector, attention_weights = self.attention(lstm_out)
 
-        # 分类
-        out = self.classifier(context_vector)
-        return out
+        # 主要分类预测
+        main_output = self.classifier(context_vector)
+
+        # 状态转移预测
+        transition_logits = self.transition_predictor(context_vector)
+        transition_matrix = transition_logits.view(batch_size, 4, 4)
+
+        return main_output, transition_matrix, attention_weights

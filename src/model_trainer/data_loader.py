@@ -56,59 +56,49 @@ class SleepDataset(Dataset):
         logger.info("Starting data preprocessing")
         initial_size = len(self.data)
 
-        # 将时间戳转换为datetime对象
-        logger.debug("Converting timestamps to datetime")
-        self.data["time"] = pd.to_datetime(self.data["time"], unit="s")
+        # 将时间戳转换为相对时间特征
+        logger.debug("Processing timestamps")
+        self.data = self.data.sort_values(["user_id", "time"])
 
-        # 提取时间特征
-        logger.debug("Extracting time features")
-        self.data["hour"] = self.data["time"].dt.hour
-        self.data["minute"] = self.data["time"].dt.minute
+        # 对每个用户分别处理
+        for user_id in self.data["user_id"].unique():
+            user_mask = self.data["user_id"] == user_id
+            # 计算相对时间（相对于每个用户数据的开始时间）
+            start_time = self.data[user_mask]["time"].min()
+            self.data.loc[user_mask, "relative_time"] = self.data[user_mask]["time"] - start_time
 
-        # 将时间转换为循环特征
-        logger.debug("Creating cyclical time features")
-        self.data["hour_sin"] = np.sin(2 * np.pi * self.data["hour"] / 24)
-        self.data["hour_cos"] = np.cos(2 * np.pi * self.data["hour"] / 24)
-        self.data["minute_sin"] = np.sin(2 * np.pi * self.data["minute"] / 60)
-        self.data["minute_cos"] = np.cos(2 * np.pi * self.data["minute"] / 60)
+            # 计算心率的统计特征
+            self.data.loc[user_mask, "heart_rate_diff"] = self.data[user_mask]["heart_rate"].diff()
+            self.data.loc[user_mask, "heart_rate_ma"] = self.data[user_mask]["heart_rate"].rolling(window=5, min_periods=1).mean()
 
-        # 计算心率变化特征
-        logger.debug("Computing heart rate derivatives")
-        self.data["heart_rate_diff"] = self.data.groupby("user_id")["heart_rate"].diff()
-        self.data["heart_rate_diff2"] = self.data.groupby("user_id")["heart_rate_diff"].diff()
+            # 归一化特征
+            for feature in ["heart_rate", "heart_rate_diff", "heart_rate_ma", "relative_time"]:
+                mean = self.data.loc[user_mask, feature].mean()
+                std = self.data.loc[user_mask, feature].std()
+                self.data.loc[user_mask, feature] = (self.data.loc[user_mask, feature] - mean) / (std + 1e-8)
 
-        # 对每个用户的特征分别进行归一化
-        logger.debug("Normalizing features per user")
-        features_to_normalize = ["heart_rate", "heart_rate_diff", "heart_rate_diff2"]
-        for feature in features_to_normalize:
-            self.data[feature] = self.data.groupby("user_id")[feature].transform(lambda x: (x - x.mean()) / (x.std() + 1e-8))
-
-        # 确保所有数据都是有效的
-        logger.debug("Removing invalid data")
-        self.data = self.data.dropna()
-
-        # 记录数据清理的影响
-        removed_rows = initial_size - len(self.data)
-        logger.info(f"Removed {removed_rows} invalid rows ({removed_rows / initial_size * 100:.2f}% of data)")
-
-        # 修改睡眠分期映射到新的4分类
-        logger.debug("Mapping sleep stages to 4 classes")
+        # 修改睡眠分期映射
         stage_mapping = {
-            0: 0,  # wake -> wake (0)
-            1: 1,  # sleep-stage1 -> light (1)
-            2: 1,  # sleep-stage2 -> light (1)
-            3: 2,  # sleep-stage3 -> deep (2)
-            4: 2,  # sleep-stage4 -> deep (2)
-            5: 3,  # REM -> rem (3)
+            0: 0,  # wake
+            1: 1,  # light
+            2: 1,  # light
+            3: 2,  # deep
+            4: 2,  # deep
+            5: 3,  # REM
         }
         self.data["sleep_stage"] = self.data["sleep_stage"].map(stage_mapping)
+
+        # 添加前一时刻的睡眠阶段作为特征
+        self.data["prev_sleep_stage"] = self.data.groupby("user_id")["sleep_stage"].shift(1)
+        # 填充缺失值（每个用户数据的第一个时间点）
+        self.data["prev_sleep_stage"] = self.data["prev_sleep_stage"].fillna(-1)  # -1表示没有前一个状态
 
         # 检查睡眠阶段分布
         stage_dist = self.data["sleep_stage"].value_counts()
         stage_names = {0: "Wake", 1: "Light", 2: "Deep", 3: "REM"}
         logger.info("Sleep stage distribution:")
         for stage, count in stage_dist.items():
-            logger.info(f"{stage_names[stage]}: {int(count)} samples ({count / len(self.data) * 100:.2f}%)")
+            logger.info(f"{stage_names[stage]}: {count} samples ({count/len(self.data)*100:.2f}%)")
 
     def prepare_sequences(self):
         """准备序列数据"""
@@ -116,49 +106,28 @@ class SleepDataset(Dataset):
         sequences = []
         labels = []
 
-        feature_columns = [
-            "heart_rate",
-            "heart_rate_diff",
-            "heart_rate_diff2",
-            "hour_sin",
-            "hour_cos",
-            "minute_sin",
-            "minute_cos",
-        ]
+        feature_columns = ["relative_time", "heart_rate", "heart_rate_diff", "heart_rate_ma", "prev_sleep_stage"]
 
         # 按用户和时间排序
         self.data = self.data.sort_values(["user_id", "time"])
 
-        total_sequences = 0
-        invalid_sequences = 0
-
         for user_id in self.data["user_id"].unique():
             user_data = self.data[self.data["user_id"] == user_id]
-            logger.debug(f"Processing sequences for user {user_id}, data points: {len(user_data)}")
 
             features = user_data[feature_columns].values
             targets = user_data["sleep_stage"].values
 
             # 创建滑动窗口序列
             for i in range(len(user_data) - self.sequence_length + 1):
-                total_sequences += 1
                 seq = features[i : i + self.sequence_length]
                 label = targets[i + self.sequence_length - 1]
 
-                # 确保序列中没有无效值
                 if not np.isnan(seq).any() and not np.isnan(label):
                     sequences.append(seq)
                     labels.append(label)
-                else:
-                    invalid_sequences += 1
 
         self.sequences = np.array(sequences)
         self.labels = np.array(labels)
-
-        logger.info(f"Created {len(sequences)} valid sequences")
-        logger.info(f"Dropped {invalid_sequences} invalid sequences ({invalid_sequences / total_sequences * 100:.2f}%)")
-        logger.info(f"Final sequence shape: {self.sequences.shape}")
-        logger.info(f"Final labels shape: {self.labels.shape}")
 
     def __len__(self):
         return len(self.sequences)
