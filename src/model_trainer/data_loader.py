@@ -88,11 +88,6 @@ class SleepDataset(Dataset):
         }
         self.data["sleep_stage"] = self.data["sleep_stage"].map(stage_mapping)
 
-        # 添加前一时刻的睡眠阶段作为特征
-        self.data["prev_sleep_stage"] = self.data.groupby("user_id")["sleep_stage"].shift(1)
-        # 填充缺失值（每个用户数据的第一个时间点）
-        self.data["prev_sleep_stage"] = self.data["prev_sleep_stage"].fillna(-1)  # -1表示没有前一个状态
-
         # 检查睡眠阶段分布
         stage_dist = self.data["sleep_stage"].value_counts()
         stage_names = {0: "Wake", 1: "Light", 2: "Deep", 3: "REM"}
@@ -106,7 +101,8 @@ class SleepDataset(Dataset):
         sequences = []
         labels = []
 
-        feature_columns = ["relative_time", "heart_rate", "heart_rate_diff", "heart_rate_ma", "prev_sleep_stage"]
+        # 更新特征列表，删除 prev_sleep_stage
+        feature_columns = ["relative_time", "heart_rate", "heart_rate_diff", "heart_rate_ma"]
 
         # 按用户和时间排序
         self.data = self.data.sort_values(["user_id", "time"])

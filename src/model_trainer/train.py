@@ -46,25 +46,7 @@ class TrainingConfig:
     num_classes: int = MODEL_CONFIG["num_classes"]
 
 
-def compute_transition_loss(transition_matrix, prev_labels, current_labels):
-    batch_size = transition_matrix.size(0)
-    # 获取每个样本的转移概率
-    transition_probs = F.log_softmax(transition_matrix, dim=2)
-
-    # 计算实际发生的转移的负对数似然
-    loss = 0
-    for i in range(batch_size):
-        prev_state = prev_labels[i]
-        current_state = current_labels[i]
-        if prev_state != -1:  # 只在有前一个状态时计算转移损失
-            loss -= transition_probs[i, prev_state, current_state]
-
-    return loss / batch_size
-
-
-def train_model(
-    config: TrainingConfig, data_dir=DATA_DIR, model_save_dir=MODEL_SAVE_DIR
-):
+def train_model(config: TrainingConfig, data_dir=DATA_DIR, model_save_dir=MODEL_SAVE_DIR):
     try:
         # 设置设备
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -170,26 +152,12 @@ def train_model(
                 features = features.float().to(device)
                 labels = labels.long().to(device)
 
-                # 获取前一个状态（从特征的最后一个维度）
-                prev_states = features[
-                    :, -1, -1
-                ].long()  # 假设prev_sleep_stage是最后一个特征
-
                 optimizer.zero_grad()
-                main_output, transition_matrix, _ = model(features)
+                # 修改模型输出的解包
+                main_output, _, attention_weights = model(features)
 
-                # 计算分类损失
-                classification_loss = criterion(main_output, labels)
-
-                # 计算状态转移损失
-                transition_loss = compute_transition_loss(
-                    transition_matrix, prev_states, labels
-                )
-
-                # 总损失
-                loss = (
-                    classification_loss + 0.1 * transition_loss
-                )  # 可以调整权重
+                # 只计算分类损失
+                loss = criterion(main_output, labels)
 
                 loss.backward()
                 optimizer.step()
@@ -215,24 +183,13 @@ def train_model(
                 for features, labels in val_pbar:
                     features = features.float().to(device)
                     labels = labels.long().to(device)
-
-                    # 获取前一个状态
-                    prev_states = features[:, -1, -1].long()
-
+                    
                     # 获取模型输出
-                    main_output, transition_matrix, _ = model(features)
-
-                    # 计算分类损失
-                    classification_loss = criterion(main_output, labels)
-
-                    # 计算状态转移损失
-                    transition_loss = compute_transition_loss(
-                        transition_matrix, prev_states, labels
-                    )
-
-                    # 计算总损失
-                    loss = classification_loss + 0.1 * transition_loss
-
+                    main_output, _, attention_weights = model(features)
+                    
+                    # 只计算分类损失
+                    loss = criterion(main_output, labels)
+                    
                     total_val_loss += loss.item()
                     val_pbar.set_postfix({"val_loss": loss.item()})
 

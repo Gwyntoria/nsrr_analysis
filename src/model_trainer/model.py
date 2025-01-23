@@ -22,12 +22,19 @@ class AttentionLayer(nn.Module):
 
 
 class SleepStageClassifier(nn.Module):
-    def __init__(self, input_size=5, hidden_size=256, num_layers=3, num_classes=4, dropout=0.5):
+    def __init__(
+        self,
+        input_size=4,
+        hidden_size=256,
+        num_layers=3,
+        num_classes=4,
+        dropout=0.5,
+    ):
         """
         基于LSTM的睡眠分期分类器
         Args:
-            input_size: 输入特征维度 (5个特征: relative_time, heart_rate, heart_rate_diff,
-                       heart_rate_ma, prev_sleep_stage)
+            input_size: 输入特征维度 (4个特征: relative_time, heart_rate, heart_rate_diff,
+                       heart_rate_ma)
             hidden_size: LSTM隐藏层大小
             num_layers: LSTM层数
             num_classes: 分类数量（4个睡眠分期）
@@ -36,7 +43,12 @@ class SleepStageClassifier(nn.Module):
         super(SleepStageClassifier, self).__init__()
 
         # 特征提取层
-        self.feature_extractor = nn.Sequential(nn.Linear(input_size, hidden_size), nn.LayerNorm(hidden_size), nn.ReLU(), nn.Dropout(0.2))
+        self.feature_extractor = nn.Sequential(
+            nn.Linear(input_size, hidden_size),
+            nn.LayerNorm(hidden_size),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+        )
 
         # 双向LSTM层
         self.lstm = nn.LSTM(
@@ -53,11 +65,17 @@ class SleepStageClassifier(nn.Module):
 
         # 分类层
         self.classifier = nn.Sequential(
-            nn.Linear(hidden_size * 2, hidden_size), nn.BatchNorm1d(hidden_size), nn.ReLU(), nn.Dropout(dropout), nn.Linear(hidden_size, num_classes)
+            nn.Linear(hidden_size * 2, hidden_size),
+            nn.BatchNorm1d(hidden_size),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_size, num_classes),
         )
 
         # 添加状态转移预测层
-        self.transition_predictor = nn.Linear(hidden_size * 2, num_classes * num_classes)
+        self.transition_predictor = nn.Linear(
+            hidden_size * 2, num_classes * num_classes
+        )
 
     def forward(self, x):
         batch_size = x.size(0)
