@@ -82,9 +82,7 @@ def test_single_file(data_dir, model_path, result_dir):
     # 绘制对比图
     plt.figure(figsize=(15, 10))
     plt.plot(df["timestamp"], df["sleep_stage"], label="Actual", alpha=0.7)
-    plt.plot(
-        df["timestamp"], df["predicted_stage"], label="Predicted", alpha=0.7
-    )
+    plt.plot(df["timestamp"], df["predicted_stage"], label="Predicted", alpha=0.7)
     plt.title("Sleep Stage Comparison")
     plt.xlabel("Time (seconds)")
     plt.ylabel("Sleep Stage")

@@ -46,7 +46,9 @@ class TrainingConfig:
     num_classes: int = MODEL_CONFIG["num_classes"]
 
 
-def train_model(config: TrainingConfig, data_dir=DATA_DIR, model_save_dir=MODEL_SAVE_DIR):
+def train_model(
+    config: TrainingConfig, data_dir=DATA_DIR, model_save_dir=MODEL_SAVE_DIR
+):
     try:
         # 设置设备
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -82,9 +84,7 @@ def train_model(config: TrainingConfig, data_dir=DATA_DIR, model_save_dir=MODEL_
         val_size = total_size - train_size
 
         # 直接划分数据集
-        train_dataset, val_dataset = random_split(
-            dataset, [train_size, val_size]
-        )
+        train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
 
         train_loader = DataLoader(
             train_dataset, batch_size=config.batch_size, shuffle=True
@@ -176,20 +176,18 @@ def train_model(config: TrainingConfig, data_dir=DATA_DIR, model_save_dir=MODEL_
             # 验证
             model.eval()
             total_val_loss = 0
-            val_pbar = tqdm(
-                val_loader, desc=f"Epoch {epoch + 1}/{config.epochs} [Val]"
-            )
+            val_pbar = tqdm(val_loader, desc=f"Epoch {epoch + 1}/{config.epochs} [Val]")
             with torch.no_grad():
                 for features, labels in val_pbar:
                     features = features.float().to(device)
                     labels = labels.long().to(device)
-                    
+
                     # 获取模型输出
                     main_output, _, attention_weights = model(features)
-                    
+
                     # 只计算分类损失
                     loss = criterion(main_output, labels)
-                    
+
                     total_val_loss += loss.item()
                     val_pbar.set_postfix({"val_loss": loss.item()})
 
@@ -203,9 +201,7 @@ def train_model(config: TrainingConfig, data_dir=DATA_DIR, model_save_dir=MODEL_
                 best_val_loss = avg_val_loss
                 early_stopping_counter = 0
                 # 保存最佳模型
-                torch.save(
-                    model.state_dict(), os.path.join(model_save_dir, MODEL_NAME)
-                )
+                torch.save(model.state_dict(), os.path.join(model_save_dir, MODEL_NAME))
             else:
                 early_stopping_counter += 1
 

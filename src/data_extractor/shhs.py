@@ -74,7 +74,9 @@ if __name__ == "__main__":
             try:
                 file_counter += 1
                 progress = (file_counter / edf_files_num) * 100
-                print(f"处理第{file_counter}/{edf_files_num}个文件 ({progress:.2f}%): {edf_file}")
+                print(
+                    f"处理第{file_counter}/{edf_files_num}个文件 ({progress:.2f}%): {edf_file}"
+                )
 
                 # 找到对应的xml文件
                 xml_path, xml_file = find_matching_xml(edf_file, xml_files)
@@ -108,11 +110,15 @@ if __name__ == "__main__":
 
                 print("开始提取数据...")
                 # 获取原始采样率的ECG数据
-                ecg_data, ecg_timestamps = edf_extractor.get_channel_data("ECG", raw=True)
+                ecg_data, ecg_timestamps = edf_extractor.get_channel_data(
+                    "ECG", raw=True
+                )
                 print(f"ECG数据点数: {len(ecg_data)}")
 
                 # 将ECG数据转换为30s间隔的心率数据
-                heart_rate, timestamps = edf_extractor.ecg_to_hr(ecg_data, ecg_timestamps)
+                heart_rate, timestamps = edf_extractor.ecg_to_hr(
+                    ecg_data, ecg_timestamps
+                )
                 print(f"处理后的心率数据点数: {len(heart_rate)}")
 
                 sleep_stages = xml_extractor.extract_sleep_stages()

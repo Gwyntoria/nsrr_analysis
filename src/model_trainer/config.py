@@ -73,9 +73,7 @@ def setup_logger(name=None, log_file=None, level=logging.DEBUG):
         # 文件日志处理器（可选）
         if log_file:
             # 如果提供了日志文件路径，确保其父目录存在
-            os.makedirs(
-                os.path.dirname(os.path.abspath(log_file)), exist_ok=True
-            )
+            os.makedirs(os.path.dirname(os.path.abspath(log_file)), exist_ok=True)
             file_handler = logging.FileHandler(log_file, encoding="utf-8")
             file_handler.setFormatter(formatter)
             logger.addHandler(file_handler)

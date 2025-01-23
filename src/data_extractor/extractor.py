@@ -56,7 +56,9 @@ class EDFExtractor:
         if self._edf is None:
             # 加载文件
             print("加载EDF文件...")
-            self._edf = mne.io.read_raw_edf(self.edf_file_path, preload=True)  # 改为 preload=True
+            self._edf = mne.io.read_raw_edf(
+                self.edf_file_path, preload=True
+            )  # 改为 preload=True
             original_sfreq = self._edf.info["sfreq"]
             print(f"原始采样率: {original_sfreq} Hz")
 
@@ -108,7 +110,9 @@ class EDFExtractor:
         all_channels = self._edf.ch_names
         print(f"可用通道列表: {all_channels}")
 
-        matched_channels = [ch for ch in all_channels if re.search(channel, ch, re.IGNORECASE)]
+        matched_channels = [
+            ch for ch in all_channels if re.search(channel, ch, re.IGNORECASE)
+        ]
         print(f"匹配到的通道: {matched_channels}")
 
         if not matched_channels:
@@ -153,14 +157,18 @@ class EDFExtractor:
         print(f"ECG数据采样率: {sampling_rate} Hz")
 
         if sampling_rate < 100:  # 如果采样率低于100Hz，可能无法准确检测R波
-            raise ValueError(f"ECG采样率太低 ({sampling_rate} Hz)，需要原始采样率的数据。请使用raw=True获取数据。")
+            raise ValueError(
+                f"ECG采样率太低 ({sampling_rate} Hz)，需要原始采样率的数据。请使用raw=True获取数据。"
+            )
 
         # 数据预处理
         # 1. 移除基线漂移
         ecg_detrended = detrend(ecg_data)
 
         # 2. 标准化数据
-        ecg_normalized = (ecg_detrended - np.mean(ecg_detrended)) / np.std(ecg_detrended)
+        ecg_normalized = (ecg_detrended - np.mean(ecg_detrended)) / np.std(
+            ecg_detrended
+        )
 
         # 使用find_peaks检测R波峰
         # 确保最小距离至少为1
@@ -217,7 +225,11 @@ class EDFExtractor:
             else:
                 # 如果是第一个窗口且没有数据，使用后面的有效值
                 if i == 0 and len(heart_rates) == 0:
-                    next_valid = instant_hr[hr_times >= window_end][0] if any(hr_times >= window_end) else 60
+                    next_valid = (
+                        instant_hr[hr_times >= window_end][0]
+                        if any(hr_times >= window_end)
+                        else 60
+                    )
                     heart_rates.append(next_valid)
                 # 否则使用前一个窗口的值
                 else:

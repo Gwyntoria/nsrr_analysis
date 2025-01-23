@@ -5,7 +5,13 @@ import numpy as np
 import seaborn as sns
 import torch
 import torch.nn.functional as F
-from sklearn.metrics import average_precision_score, classification_report, confusion_matrix, precision_recall_curve, roc_auc_score
+from sklearn.metrics import (
+    average_precision_score,
+    classification_report,
+    confusion_matrix,
+    precision_recall_curve,
+    roc_auc_score,
+)
 from tqdm import tqdm
 import pandas as pd
 
@@ -42,7 +48,7 @@ def evaluate_model(model, test_loader, device, save_dir=PLOTS_DIR):
         for features, labels in tqdm(test_loader, desc="Evaluating"):
             features = features.float().to(device)
             labels = labels.to(device)
-            
+
             # 获取主要输出
             main_output, _, _ = model(features)
             probs = F.softmax(main_output, dim=1)
@@ -62,19 +68,29 @@ def evaluate_model(model, test_loader, device, save_dir=PLOTS_DIR):
     # 计算每个类别的ROC AUC
     roc_auc = {}
     for i in range(4):  # 修改为4个类别
-        roc_auc[f"Stage_{i}"] = roc_auc_score((all_labels == i).astype(int), all_probs[:, i], average="macro")
+        roc_auc[f"Stage_{i}"] = roc_auc_score(
+            (all_labels == i).astype(int), all_probs[:, i], average="macro"
+        )
 
     # 计算平均精确率
     avg_precision = {}
     for i in range(4):  # 修改为4个类别
-        avg_precision[f"Stage_{i}"] = average_precision_score((all_labels == i).astype(int), all_probs[:, i])
+        avg_precision[f"Stage_{i}"] = average_precision_score(
+            (all_labels == i).astype(int), all_probs[:, i]
+        )
 
     # 绘制每个类别的PR曲线
     plt.figure(figsize=(12, 8))
     stage_names_dict = {0: "Wake", 1: "Light", 2: "Deep", 3: "REM"}
     for i in range(4):  # 修改为4个类别
-        precision, recall, _ = precision_recall_curve((all_labels == i).astype(int), all_probs[:, i])
-        plt.plot(recall, precision, label=f"{stage_names_dict[i]} (AP={avg_precision[f'Stage_{i}']:.2f})")
+        precision, recall, _ = precision_recall_curve(
+            (all_labels == i).astype(int), all_probs[:, i]
+        )
+        plt.plot(
+            recall,
+            precision,
+            label=f"{stage_names_dict[i]} (AP={avg_precision[f'Stage_{i}']:.2f})",
+        )
 
     plt.title("Precision-Recall Curves")
     plt.xlabel("Recall")
@@ -111,7 +127,14 @@ def evaluate_model(model, test_loader, device, save_dir=PLOTS_DIR):
     # 绘制混淆矩阵
     cm = confusion_matrix(all_labels, all_preds)
     plt.figure(figsize=(12, 10))
-    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=stage_names, yticklabels=stage_names)
+    sns.heatmap(
+        cm,
+        annot=True,
+        fmt="d",
+        cmap="Blues",
+        xticklabels=stage_names,
+        yticklabels=stage_names,
+    )
     plt.title("Confusion Matrix")
     plt.ylabel("True Label")
     plt.xlabel("Predicted Label")
@@ -145,10 +168,14 @@ def predict_sleep_stages(model, time_series, heart_rates, device, sequence_lengt
     # 计算特征
     relative_time = time_series - time_series[0]
     heart_rate_diff = np.diff(heart_rates, prepend=heart_rates[0])
-    heart_rate_ma = pd.Series(heart_rates).rolling(window=5, min_periods=1).mean().values
+    heart_rate_ma = (
+        pd.Series(heart_rates).rolling(window=5, min_periods=1).mean().values
+    )
 
     # 标准化特征
-    features = np.column_stack([relative_time, heart_rates, heart_rate_diff, heart_rate_ma])
+    features = np.column_stack(
+        [relative_time, heart_rates, heart_rate_diff, heart_rate_ma]
+    )
 
     # 使用滑动窗口进行预测
     with torch.no_grad():

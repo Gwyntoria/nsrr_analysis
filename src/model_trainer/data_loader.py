@@ -43,7 +43,13 @@ class SleepDataset(Dataset):
             logger.debug(f"Processing user_id: {user_id}, data shape: {df.shape}")
 
             # 重命名列名以匹配代码
-            df = df.rename(columns={"timestamp": "time", "heart_rate": "heart_rate", "sleep_stage": "sleep_stage"})
+            df = df.rename(
+                columns={
+                    "timestamp": "time",
+                    "heart_rate": "heart_rate",
+                    "sleep_stage": "sleep_stage",
+                }
+            )
             df["user_id"] = user_id
             all_data.append(df)
 
@@ -65,17 +71,32 @@ class SleepDataset(Dataset):
             user_mask = self.data["user_id"] == user_id
             # 计算相对时间（相对于每个用户数据的开始时间）
             start_time = self.data[user_mask]["time"].min()
-            self.data.loc[user_mask, "relative_time"] = self.data[user_mask]["time"] - start_time
+            self.data.loc[user_mask, "relative_time"] = (
+                self.data[user_mask]["time"] - start_time
+            )
 
             # 计算心率的统计特征
-            self.data.loc[user_mask, "heart_rate_diff"] = self.data[user_mask]["heart_rate"].diff()
-            self.data.loc[user_mask, "heart_rate_ma"] = self.data[user_mask]["heart_rate"].rolling(window=5, min_periods=1).mean()
+            self.data.loc[user_mask, "heart_rate_diff"] = self.data[user_mask][
+                "heart_rate"
+            ].diff()
+            self.data.loc[user_mask, "heart_rate_ma"] = (
+                self.data[user_mask]["heart_rate"]
+                .rolling(window=5, min_periods=1)
+                .mean()
+            )
 
             # 归一化特征
-            for feature in ["heart_rate", "heart_rate_diff", "heart_rate_ma", "relative_time"]:
+            for feature in [
+                "heart_rate",
+                "heart_rate_diff",
+                "heart_rate_ma",
+                "relative_time",
+            ]:
                 mean = self.data.loc[user_mask, feature].mean()
                 std = self.data.loc[user_mask, feature].std()
-                self.data.loc[user_mask, feature] = (self.data.loc[user_mask, feature] - mean) / (std + 1e-8)
+                self.data.loc[user_mask, feature] = (
+                    self.data.loc[user_mask, feature] - mean
+                ) / (std + 1e-8)
 
         # 修改睡眠分期映射
         stage_mapping = {
@@ -93,7 +114,9 @@ class SleepDataset(Dataset):
         stage_names = {0: "Wake", 1: "Light", 2: "Deep", 3: "REM"}
         logger.info("Sleep stage distribution:")
         for stage, count in stage_dist.items():
-            logger.info(f"{stage_names[stage]}: {count} samples ({count/len(self.data)*100:.2f}%)")
+            logger.info(
+                f"{stage_names[stage]}: {count} samples ({count/len(self.data)*100:.2f}%)"
+            )
 
     def prepare_sequences(self):
         """准备序列数据"""
@@ -102,7 +125,12 @@ class SleepDataset(Dataset):
         labels = []
 
         # 更新特征列表，删除 prev_sleep_stage
-        feature_columns = ["relative_time", "heart_rate", "heart_rate_diff", "heart_rate_ma"]
+        feature_columns = [
+            "relative_time",
+            "heart_rate",
+            "heart_rate_diff",
+            "heart_rate_ma",
+        ]
 
         # 按用户和时间排序
         self.data = self.data.sort_values(["user_id", "time"])
@@ -149,11 +177,15 @@ class SleepDataset(Dataset):
             if np.random.random() < 0.3:
                 scale = np.random.uniform(0.85, 1.15)
                 time_steps = np.arange(len(sequence))
-                new_time_steps = np.linspace(0, len(sequence) - 1, len(sequence)) * scale
+                new_time_steps = (
+                    np.linspace(0, len(sequence) - 1, len(sequence)) * scale
+                )
 
                 warped_sequence = np.zeros_like(sequence)
                 for i in range(sequence.shape[1]):
-                    warped_sequence[:, i] = np.interp(time_steps, new_time_steps, sequence[:, i])
+                    warped_sequence[:, i] = np.interp(
+                        time_steps, new_time_steps, sequence[:, i]
+                    )
                 sequence = warped_sequence
 
             # 添加随机掩码
