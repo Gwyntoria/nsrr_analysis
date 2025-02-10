@@ -265,8 +265,9 @@ class EDFExtractor:
         max_time = int(ecg_timestamps[-1])
         n_windows = int(np.floor(max_time / window_size))
 
-        list_hr = []
-        list_hrv = []
+        hr_list = []
+        hrv_list = []
+        hr_window_size = int(sampling_rate * 3)
 
         for i in range(n_windows):
             start_time = i * window_size
@@ -275,39 +276,99 @@ class EDFExtractor:
             start_index = int(start_time * sampling_rate)
             end_index = int(end_time * sampling_rate)
 
-            ecg_filtered_segment = ecg_filtered[start_index:end_index]
+            ecg_segment_hrv = ecg_filtered[start_index:end_index]
 
             try:
                 _, measures = hp.process(
-                    ecg_filtered_segment,
+                    ecg_segment_hrv,
                     sample_rate=sampling_rate,
                     calc_freq=True,
                     freq_method="welch",
                     interp_clipping=True,
                     reject_segmentwise=True,
                 )
-                list_hr.append(measures["bpm"])
-                list_hrv.append(measures["rmssd"])
+                hrv_list.append(measures["rmssd"])
             except Exception as e:
-                print(f"处理第{i+1}个{window_size}秒窗口时出现错误: {str(e)}")
-                list_hr.append(-1)
-                list_hrv.append(-1)
+                print(f"计算第{i+1}个HRV窗口时出现错误: {str(e)}")
+                hrv_list.append(-1)
 
-        list_len_hr = len(list_hr)
-        list_len_hrv = len(list_hrv)
-
-        if list_len_hr != list_len_hrv:
-            print(
-                f"心率数据点数({list_len_hr})与RMSSD数据点数({list_len_hrv})不一致，将使用较小的数据点数"
+            ecg_segment_hr = (
+                ecg_segment_hrv[hr_window_size * -1 :]
+                if len(ecg_segment_hrv) > hr_window_size
+                else ecg_segment_hrv
             )
-            n_windows = min(list_len_hr, list_len_hrv)
-            list_hr = list_hr[:n_windows]
-            list_hrv = list_hrv[:n_windows]
+
+            try:
+                _, measures = hp.process(
+                    ecg_segment_hr,
+                    sample_rate=sampling_rate,
+                    calc_freq=False,
+                    interp_clipping=True,
+                    reject_segmentwise=True,
+                )
+                hr_list.append(measures["bpm"])
+            except Exception as e:
+                print(f"计算第{i+1}个HR窗口时出现错误: {str(e)}")
+                hr_list.append(-1)
+
+
+        # 处理最后一个窗口
+        final_ecg_segment_hrv = ecg_filtered[
+            int(n_windows * window_size * sampling_rate) :
+        ]
+        
+        try:
+            _, measures = hp.process(
+                final_ecg_segment_hrv,
+                sample_rate=sampling_rate,
+                calc_freq=True,
+                freq_method="welch",
+                interp_clipping=True,
+                reject_segmentwise=True,
+            )
+            hrv_list.append(measures["rmssd"])
+        except Exception as e:
+            print(f"计算最后一个HRV窗口时出现错误: {str(e)}")
+            hrv_list.append(-1)
+
+        final_ecg_segment_hr = (
+            final_ecg_segment_hrv[hr_window_size * -1 :]
+            if len(final_ecg_segment_hrv) > hr_window_size
+            else final_ecg_segment_hrv
+        )
+        
+        try:
+            _, measures = hp.process(
+                final_ecg_segment_hr,
+                sample_rate=sampling_rate,
+                calc_freq=False,
+                interp_clipping=True,
+                reject_segmentwise=True,
+            )
+            hr_list.append(measures["bpm"])
+        except Exception as e:
+            print(f"计算最后一个HR窗口时出现错误: {str(e)}")
+            hr_list.append(-1)
+
+        # 进一步剔除异常值
+        hr_list = [round(hr) if hr > 40 and hr < 200 else -1 for hr in hr_list]
+        hrv_list = [round(hrv) if hrv > 0 and hrv < 160 else -1 for hrv in hrv_list]
+
+        hr_num = len(hr_list)
+        hrv_num = len(hrv_list)
+
+        if hr_num != hrv_num:
+            print(
+                f"心率数据点数({hr_num})与RMSSD数据点数({hrv_num})不一致，将使用较小的数据点数"
+            )
+            n_windows = min(hr_num, hrv_num)
+            hr_list = hr_list[:n_windows]
+            hrv_list = hrv_list[:n_windows]
         else:
-            print(f"提取了 {list_len_hr} 个{window_size}秒间隔的数据点")
+            print(f"提取了 {hr_num} 个{window_size}秒间隔的数据点")
 
         return (
-            np.array(list_hr),
-            np.array(list_hrv),
+            np.array(hr_list),
+            np.array(hrv_list),
             np.arange(0, n_windows * window_size, window_size),
         )

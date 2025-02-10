@@ -8,7 +8,7 @@ from extractor import EDFExtractor, XMLExtractor
 
 edf_dir = "E:\\Dataset\\nsrr\\shhs\\polysomnography\\edfs"
 xml_dir = "E:\\Dataset\\nsrr\\shhs\\polysomnography\\annotations-events-profusion"
-csv_dir = "E:\\Dataset\\nsrr\\shhs\\polysomnography\\csvs"
+csv_dir = "E:\\Dataset\\nsrr\\shhs\\polysomnography\\csvs-2"
 
 
 def get_sorted_files(directory, extension) -> list:
@@ -55,7 +55,7 @@ def find_matching_xml(edf_filename, xml_files) -> tuple:
 
 if __name__ == "__main__":
     try:
-        print("\n开始处理数据...")
+        print("开始处理数据...")
         # 获取排序后的edf文件列表
         edf_files = get_sorted_files(edf_dir, ".edf")
         xml_files = get_sorted_files(xml_dir, ".xml")
@@ -115,20 +115,30 @@ if __name__ == "__main__":
                 )
                 print(f"ECG数据点数: {len(ecg_data)}")
 
-                # 将ECG数据转换为30s间隔的心率数据
-                heart_rate, timestamps = edf_extractor.ecg_to_hr(
-                    ecg_data, ecg_timestamps
+                hr_list, hrv_list, time_list = edf_extractor.parse_ecg(
+                    ecg_data, ecg_timestamps, window_size=30
                 )
-                print(f"处理后的心率数据点数: {len(heart_rate)}")
+                hr_num = len(hr_list)
+                print(f"心率数据点数: {hr_num}")
 
-                sleep_stages = xml_extractor.extract_sleep_stages()
-                print(f"睡眠阶段数据点数: {len(sleep_stages)}")
+                sleep_stage_list = xml_extractor.extract_sleep_stages()
+                sleep_stage_num = len(sleep_stage_list)
+                print(f"睡眠阶段数据点数: {sleep_stage_num}")
 
-                print("\n保存数据到CSV...")
+                if hr_num != sleep_stage_num:
+                    print(f"心率数据点数与睡眠阶段数据点数不匹配,裁剪数据")
+                    min_num = min(hr_num, sleep_stage_num)
+                    hr_list = hr_list[:min_num]
+                    hrv_list = hrv_list[:min_num]
+                    time_list = time_list[:min_num]
+                    sleep_stage_list = sleep_stage_list[:min_num]
+
+                print("保存数据到CSV...")
                 saver = CSVSaver(csv_path)
-                saver.save_csv_element("timestamp", timestamps)
-                saver.save_csv_element("heart_rate", heart_rate)
-                saver.save_csv_element("sleep_stage", sleep_stages)
+                saver.save_csv_element("timestamp", time_list)
+                saver.save_csv_element("HR", hr_list)
+                saver.save_csv_element("HRV", hrv_list)
+                saver.save_csv_element("sleep_stage", sleep_stage_list)
 
                 print(f"成功处理文件 {edf_file}")
                 print(f"数据已保存到: {csv_path}")
