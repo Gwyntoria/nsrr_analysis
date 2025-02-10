@@ -3,7 +3,9 @@ import xml.etree.ElementTree as ET
 
 import mne
 import numpy as np
+import heartpy as hp
 from scipy.signal import detrend, find_peaks
+import matplotlib.pyplot as plt
 
 
 class XMLExtractor:
@@ -238,3 +240,74 @@ class EDFExtractor:
         print(f"生成了 {len(heart_rates)} 个30秒间隔的心率数据点")
 
         return np.array(heart_rates), window_times[:-1]
+
+    def parse_ecg(
+        self, ecg_data: np.ndarray, ecg_timestamps: np.ndarray, window_size: int = 30
+    ) -> tuple:
+        print("开始处理ECG数据以计算HRV...")
+
+        # 计算采样率
+        sampling_rate = 1.0 / (ecg_timestamps[1] - ecg_timestamps[0])
+        print(f"ECG数据采样率: {sampling_rate} Hz")
+
+        if sampling_rate < 100:  # 如果采样率低于100Hz，可能无法准确检测R波
+            raise ValueError(
+                f"ECG采样率太低 ({sampling_rate} Hz)，需要原始采样率的数据。请使用raw=True获取数据。"
+            )
+
+        ecg_filtered = hp.filter_signal(
+            ecg_data,
+            cutoff=[0.8, 2.5],
+            sample_rate=sampling_rate,
+            filtertype="bandpass",
+        )
+
+        max_time = int(ecg_timestamps[-1])
+        n_windows = int(np.floor(max_time / window_size))
+
+        list_hr = []
+        list_hrv = []
+
+        for i in range(n_windows):
+            start_time = i * window_size
+            end_time = start_time + window_size
+
+            start_index = int(start_time * sampling_rate)
+            end_index = int(end_time * sampling_rate)
+
+            ecg_filtered_segment = ecg_filtered[start_index:end_index]
+
+            try:
+                _, measures = hp.process(
+                    ecg_filtered_segment,
+                    sample_rate=sampling_rate,
+                    calc_freq=True,
+                    freq_method="welch",
+                    interp_clipping=True,
+                    reject_segmentwise=True,
+                )
+                list_hr.append(measures["bpm"])
+                list_hrv.append(measures["rmssd"])
+            except Exception as e:
+                print(f"处理第{i+1}个{window_size}秒窗口时出现错误: {str(e)}")
+                list_hr.append(-1)
+                list_hrv.append(-1)
+
+        list_len_hr = len(list_hr)
+        list_len_hrv = len(list_hrv)
+
+        if list_len_hr != list_len_hrv:
+            print(
+                f"心率数据点数({list_len_hr})与RMSSD数据点数({list_len_hrv})不一致，将使用较小的数据点数"
+            )
+            n_windows = min(list_len_hr, list_len_hrv)
+            list_hr = list_hr[:n_windows]
+            list_hrv = list_hrv[:n_windows]
+        else:
+            print(f"提取了 {list_len_hr} 个{window_size}秒间隔的数据点")
+
+        return (
+            np.array(list_hr),
+            np.array(list_hrv),
+            np.arange(0, n_windows * window_size, window_size),
+        )

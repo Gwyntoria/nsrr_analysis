@@ -3,8 +3,8 @@ import re
 import time
 import traceback
 
-from data_extractor.csv_saver import CSVSaver
-from data_extractor.extractor import EDFExtractor, XMLExtractor
+from csv_saver import CSVSaver
+from extractor import EDFExtractor, XMLExtractor
 
 edf_dir = "E:\\Dataset\\nsrr\\shhs\\polysomnography\\edfs"
 xml_dir = "E:\\Dataset\\nsrr\\shhs\\polysomnography\\annotations-events-profusion"

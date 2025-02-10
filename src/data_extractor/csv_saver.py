@@ -34,11 +34,11 @@ class CSVSaver:
 
     def save_csv_element(self, column_name, column_values):
         """
-        将睡眠阶段数据保存到CSV文件，新数据会添加为新的一列
+        将数据保存到CSV文件，新数据会添加为新的一列
 
         Args:
-            element_values (list): 值的列表
             column_name (str): 新列的名称
+            column_values (list): 值的列表
 
         Raises:
             OSError: 当创建目录或写入文件失败时
