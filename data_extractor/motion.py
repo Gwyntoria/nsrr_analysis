@@ -6,7 +6,7 @@ HEART_RATE_DIR = "E:\\Dataset\\motion-and-heart-rate-from-a-wrist-worn-wearable-
 LABEL_DIR = "E:\\Dataset\\motion-and-heart-rate-from-a-wrist-worn-wearable-and-labeled-sleep-from-polysomnography-1.0.0\\labels"
 MOTION_DIR = "E:\\Dataset\\motion-and-heart-rate-from-a-wrist-worn-wearable-and-labeled-sleep-from-polysomnography-1.0.0\\motion"
 STEP_DIR = "E:\\Dataset\\motion-and-heart-rate-from-a-wrist-worn-wearable-and-labeled-sleep-from-polysomnography-1.0.0\\steps"
-CSV_DIR = "E:\\Dataset\\motion-and-heart-rate-from-a-wrist-worn-wearable-and-labeled-sleep-from-polysomnography-1.0.0\\csv"
+CSV_DIR = "E:\\Dataset\\motion-and-heart-rate-from-a-wrist-worn-wearable-and-labeled-sleep-from-polysomnography-1.0.0\\csv_acc"
 
 
 def read_data_file(file_path):
@@ -60,10 +60,10 @@ def process_subject_data(subject_id):
     if os.path.exists(label_file):
         data["label"] = read_data_file(label_file)
 
-    # # 读取运动数据
-    # motion_file = os.path.join(MOTION_DIR, f"{subject_id}_acceleration.txt")
-    # if os.path.exists(motion_file):
-    #     data["motion"] = read_data_file(motion_file)
+    # 读取运动数据
+    motion_file = os.path.join(MOTION_DIR, f"{subject_id}_acceleration.txt")
+    if os.path.exists(motion_file):
+        data["motion"] = read_data_file(motion_file)
 
     # # 读取步数数据
     # step_file = os.path.join(step_dir, f"{subject_id}_steps.txt")
