@@ -15,10 +15,8 @@ from sklearn.metrics import (
 from tqdm import tqdm
 import pandas as pd
 
-from config import PLOTS_DIR
 
-
-def plot_training_history(train_losses, val_losses, save_dir=PLOTS_DIR):
+def plot_training_history(train_losses, val_losses, save_dir):
     """绘制训练和验证损失曲线"""
     plt.figure(figsize=(10, 6))
     plt.plot(train_losses, label="Training Loss")
@@ -30,6 +28,8 @@ def plot_training_history(train_losses, val_losses, save_dir=PLOTS_DIR):
     plt.grid(True)
 
     # 确保保存目录存在
+    if save_dir is None:
+        save_dir = os.path.join(os.getcwd(), "training_history")
     os.makedirs(save_dir, exist_ok=True)
 
     # 保存图片
@@ -37,8 +37,12 @@ def plot_training_history(train_losses, val_losses, save_dir=PLOTS_DIR):
     plt.close()
 
 
-def evaluate_model(model, test_loader, device, save_dir=PLOTS_DIR):
+def evaluate_model(model, test_loader, device, save_dir):
     """评估模型性能"""
+    if save_dir is None:
+        save_dir = os.path.join(os.getcwd(), "evaluation_results")
+    os.makedirs(save_dir, exist_ok=True)
+
     model.eval()
     all_preds = []
     all_probs = []

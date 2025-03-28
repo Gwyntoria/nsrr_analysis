@@ -3,12 +3,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from config import PathConfig, LOG_LEVEL, setup_logger
+from config import PATH_CONFIG, LOG_LEVEL, setup_logger
 
 # 配置日志
 logger = setup_logger(
     name=__name__,
-    log_file=os.path.join(PathConfig.logs_dir, "training.log"),
+    log_file=os.path.join(PATH_CONFIG.logs_dir, "training.log"),
     level=LOG_LEVEL,
 )
 

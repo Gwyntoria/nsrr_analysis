@@ -12,10 +12,11 @@ from utils import evaluate_model, plot_training_history
 from data_loader import SleepDataset
 from model import SleepStageClassifier
 from config import (
-    PathConfig,
-    TrainingConfig,
     LOG_LEVEL,
     MODEL_NAME,
+    PATH_CONFIG,
+    TRAINING_CONFIG,
+    TrainingConfig,
     setup_directories,
     setup_logger,
 )
@@ -23,7 +24,7 @@ from config import (
 # Configure logging
 logger = setup_logger(
     name=__name__,
-    log_file=os.path.join(PathConfig.logs_dir, "training.log"),
+    log_file=os.path.join(PATH_CONFIG.logs_dir, "training.log"),
     level=LOG_LEVEL,
 )
 
@@ -224,7 +225,7 @@ def train_model(
             logger.info(f"Validation Loss: {avg_val_loss:.4f}")
 
         # 绘制训练历史
-        plot_training_history(train_losses, val_losses, save_dir=PathConfig.plots_dir)
+        plot_training_history(train_losses, val_losses, save_dir=PATH_CONFIG.plots_dir)
 
         # 评估最终模型
         accuracy = evaluate_model(model, val_loader, device)
@@ -291,11 +292,11 @@ def validate_model(model, val_loader, criterion, device):
 
 if __name__ == "__main__":
     setup_directories()
-    logger.info("Starting training process")
-    
     try:
-        config = TrainingConfig()
-        train_model(config)
+        train_model(
+            TRAINING_CONFIG, PATH_CONFIG.dataset_dir, PATH_CONFIG.model_save_dir
+        )
+        logger.info("Training completed successfully")
     except KeyboardInterrupt:
         logger.info("Training interrupted by user")
     except Exception as e:

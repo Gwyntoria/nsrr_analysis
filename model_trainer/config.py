@@ -18,7 +18,7 @@ DATASET_NAME = "shhs"  # mesa, shhs
 @dataclass
 class PathConfig:
     # Input directories
-    base_dir: Path = Path(__file__).resolve().parent.parent.parent
+    base_dir: Path = Path(__file__).resolve().parent.parent
     dataset_dir: str = os.path.join(base_dir, "data", DATASET_NAME)
     model_save_dir: str = os.path.join(base_dir, "models")
     # Output directories
@@ -41,6 +41,9 @@ class TrainingConfig:
 
     input_size: int = 5
     dropout: float = 0.5
+    
+PATH_CONFIG = PathConfig()
+TRAINING_CONFIG = TrainingConfig()
 
 
 def setup_directories():
