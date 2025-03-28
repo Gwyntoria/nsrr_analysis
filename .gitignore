@@ -6,7 +6,8 @@
 
 /data/
 /results/
-/plot/
+/plots/
+/logs/
 
 **/wandb/
 **/training.log
