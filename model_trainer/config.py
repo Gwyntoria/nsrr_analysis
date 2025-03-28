@@ -1,44 +1,56 @@
 import logging
 import os
 from pathlib import Path
+from dataclasses import dataclass
 
 # Logging configuration
 LOG_LEVEL = logging.INFO
 
-# Path configuration
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-DATA_DIR = os.path.join(BASE_DIR, "data", "mesa")
-MODEL_SAVE_DIR = os.path.join(BASE_DIR, "models")
+VERSION_MAJOR = 0
+VERSION_MINOR = 2
+VERSION_PATCH = 0
+VERSION = f"{VERSION_MAJOR}.{VERSION_MINOR}.{VERSION_PATCH}"
 
-# Model configuration
-MODEL_VERSION = "v0.1"
-MODEL_NAME = f"ssc_model_{MODEL_VERSION}.pth"
+MODEL_NAME = f"ssc_model_{VERSION}.pth"
+DATASET_NAME = "shhs"  # mesa, shhs
 
-# Model hyperparameters
-MODEL_CONFIG = {
-    "input_size": 5,
-    "hidden_size": 128,
-    "num_layers": 3,
-    "num_classes": 4,
-    "dropout": 0.5,
-    "epochs": 100,
-    "batch_size": 64,
-    "learning_rate": 0.0005,
-    "weight_decay": 0.01,
-    "patience": 10,
-    "lr_patience": 5,
-    "sequence_length": 32,
-    "hidden_size": 128,
-}
 
-# Output directories
-PLOTS_DIR = os.path.join(BASE_DIR, "plots", MODEL_VERSION)
-LOGS_DIR = os.path.join(BASE_DIR, "logs", MODEL_VERSION)
+@dataclass
+class PathConfig:
+    # Input directories
+    base_dir: Path = Path(__file__).resolve().parent.parent.parent
+    dataset_dir: str = os.path.join(base_dir, "data", DATASET_NAME)
+    model_save_dir: str = os.path.join(base_dir, "models")
+    # Output directories
+    plots_dir: str = os.path.join(base_dir, "plots", VERSION)
+    logs_dir: str = os.path.join(base_dir, "logs", VERSION)
+
+
+@dataclass
+class TrainingConfig:
+    epochs: int = 100
+    batch_size: int = 64
+    learning_rate: float = 0.0005
+    weight_decay: float = 0.01
+    patience: int = 10
+    lr_patience: int = 5
+    sequence_length: int = 32
+    hidden_size: int = 128
+    num_layers: int = 3
+    num_classes: int = 4
+
+    input_size: int = 5
+    dropout: float = 0.5
 
 
 def setup_directories():
     """创建必要的目录结构"""
-    directories = [DATA_DIR, MODEL_SAVE_DIR, PLOTS_DIR, LOGS_DIR]
+    directories = [
+        PathConfig.dataset_dir,
+        PathConfig.model_save_dir,
+        PathConfig.plots_dir,
+        PathConfig.logs_dir,
+    ]
     for directory in directories:
         os.makedirs(directory, exist_ok=True)
 

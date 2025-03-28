@@ -4,10 +4,14 @@ import numpy as np
 import pandas as pd
 from torch.utils.data import Dataset
 
-from config import LOG_LEVEL, setup_logger
+from config import PathConfig, LOG_LEVEL, setup_logger
 
 # 配置日志
-logger = setup_logger(name=__name__, log_file="training.log", level=LOG_LEVEL)
+logger = setup_logger(
+    name=__name__,
+    log_file=os.path.join(PathConfig.logs_dir, "training.log"),
+    level=LOG_LEVEL,
+)
 
 
 class SleepDataset(Dataset):

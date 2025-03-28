@@ -12,43 +12,29 @@ from utils import evaluate_model, plot_training_history
 from data_loader import SleepDataset
 from model import SleepStageClassifier
 from config import (
-    DATA_DIR,
+    PathConfig,
+    TrainingConfig,
     LOG_LEVEL,
     MODEL_NAME,
-    MODEL_SAVE_DIR,
-    PLOTS_DIR,
-    LOGS_DIR,
     setup_directories,
     setup_logger,
-    MODEL_CONFIG,
 )
 
-# Configure logging and setup directories
-setup_directories()
+# Configure logging
 logger = setup_logger(
     name=__name__,
-    log_file=os.path.join(LOGS_DIR, "training.log"),
+    log_file=os.path.join(PathConfig.logs_dir, "training.log"),
     level=LOG_LEVEL,
 )
 
 
-@dataclass
-class TrainingConfig:
-    epochs: int = MODEL_CONFIG["epochs"]
-    batch_size: int = MODEL_CONFIG["batch_size"]
-    learning_rate: float = MODEL_CONFIG["learning_rate"]
-    weight_decay: float = MODEL_CONFIG["weight_decay"]
-    patience: int = MODEL_CONFIG["patience"]
-    lr_patience: int = MODEL_CONFIG["lr_patience"]
-    sequence_length: int = MODEL_CONFIG["sequence_length"]
-    hidden_size: int = MODEL_CONFIG["hidden_size"]
-    num_layers: int = MODEL_CONFIG["num_layers"]
-    num_classes: int = MODEL_CONFIG["num_classes"]
-
-
 def train_model(
-    config: TrainingConfig, data_dir=DATA_DIR, model_save_dir=MODEL_SAVE_DIR
+    config: TrainingConfig, data_dir: str = None, model_save_dir: str = None
 ):
+    if data_dir is None or model_save_dir is None:
+        logger.error("Data directory and model save directory must be provided")
+        raise ValueError("Data directory and model save directory must be provided")
+
     try:
         # 设置设备
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -238,7 +224,7 @@ def train_model(
             logger.info(f"Validation Loss: {avg_val_loss:.4f}")
 
         # 绘制训练历史
-        plot_training_history(train_losses, val_losses, save_dir=PLOTS_DIR)
+        plot_training_history(train_losses, val_losses, save_dir=PathConfig.plots_dir)
 
         # 评估最终模型
         accuracy = evaluate_model(model, val_loader, device)
@@ -304,6 +290,9 @@ def validate_model(model, val_loader, criterion, device):
 
 
 if __name__ == "__main__":
+    setup_directories()
+    logger.info("Starting training process")
+    
     try:
         config = TrainingConfig()
         train_model(config)
