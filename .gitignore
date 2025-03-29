@@ -8,6 +8,7 @@
 /results/
 /plots/
 /logs/
+/models/
 
 **/wandb/
 **/training.log
