@@ -4,11 +4,11 @@ from pathlib import Path
 from dataclasses import dataclass
 
 # Logging configuration
-LOG_LEVEL = logging.INFO
+LOG_LEVEL = logging.DEBUG
 
 VERSION_MAJOR = 0
 VERSION_MINOR = 2
-VERSION_PATCH = 0
+VERSION_PATCH = 2
 VERSION = f"{VERSION_MAJOR}.{VERSION_MINOR}.{VERSION_PATCH}"
 
 MODEL_NAME = f"ssc_model_{VERSION}.pth"
@@ -23,7 +23,7 @@ class PathConfig:
     model_save_dir: str = os.path.join(base_dir, "models")
     # Output directories
     plots_dir: str = os.path.join(base_dir, "plots", VERSION)
-    logs_dir: str = os.path.join(base_dir, "logs", VERSION)
+    logs_dir: str = os.path.join(base_dir, "logs",f"training_{VERSION}.log")
 
 
 @dataclass
@@ -49,10 +49,9 @@ TRAINING_CONFIG = TrainingConfig()
 def setup_directories():
     """创建必要的目录结构"""
     directories = [
-        PathConfig.dataset_dir,
-        PathConfig.model_save_dir,
-        PathConfig.plots_dir,
-        PathConfig.logs_dir,
+        PATH_CONFIG.dataset_dir,
+        PATH_CONFIG.model_save_dir,
+        PATH_CONFIG.plots_dir,
     ]
     for directory in directories:
         os.makedirs(directory, exist_ok=True)

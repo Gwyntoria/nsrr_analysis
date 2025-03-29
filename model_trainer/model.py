@@ -8,7 +8,7 @@ from config import PATH_CONFIG, LOG_LEVEL, setup_logger
 # 配置日志
 logger = setup_logger(
     name=__name__,
-    log_file=os.path.join(PATH_CONFIG.logs_dir, "training.log"),
+    log_file=os.path.join(PATH_CONFIG.logs_dir),
     level=LOG_LEVEL,
 )
 

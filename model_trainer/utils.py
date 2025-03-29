@@ -16,7 +16,7 @@ from tqdm import tqdm
 import pandas as pd
 
 
-def plot_training_history(train_losses, val_losses, save_dir):
+def plot_training_history(train_losses, val_losses, plot_save_dir):
     """绘制训练和验证损失曲线"""
     plt.figure(figsize=(10, 6))
     plt.plot(train_losses, label="Training Loss")
@@ -28,20 +28,20 @@ def plot_training_history(train_losses, val_losses, save_dir):
     plt.grid(True)
 
     # 确保保存目录存在
-    if save_dir is None:
-        save_dir = os.path.join(os.getcwd(), "training_history")
-    os.makedirs(save_dir, exist_ok=True)
+    if plot_save_dir is None:
+        plot_save_dir = os.path.join(os.getcwd(), "training_history")
+    os.makedirs(plot_save_dir, exist_ok=True)
 
     # 保存图片
-    plt.savefig(os.path.join(save_dir, "training_history.png"))
+    plt.savefig(os.path.join(plot_save_dir, "training_history.png"))
     plt.close()
 
 
-def evaluate_model(model, test_loader, device, save_dir):
+def evaluate_model(model, test_loader, device, plot_save_dir):
     """评估模型性能"""
-    if save_dir is None:
-        save_dir = os.path.join(os.getcwd(), "evaluation_results")
-    os.makedirs(save_dir, exist_ok=True)
+    if plot_save_dir is None:
+        plot_save_dir = os.path.join(os.getcwd(), "evaluation_results")
+    os.makedirs(plot_save_dir, exist_ok=True)
 
     model.eval()
     all_preds = []
@@ -100,7 +100,7 @@ def evaluate_model(model, test_loader, device, save_dir):
     plt.xlabel("Recall")
     plt.ylabel("Precision")
     plt.legend()
-    plt.savefig(os.path.join(save_dir, "pr_curves.png"))
+    plt.savefig(os.path.join(plot_save_dir, "pr_curves.png"))
     plt.close()
 
     correct = 0
@@ -126,7 +126,7 @@ def evaluate_model(model, test_loader, device, save_dir):
     print(classification_report(all_labels, all_preds, target_names=stage_names))
 
     # 确保保存目录存在
-    os.makedirs(save_dir, exist_ok=True)
+    os.makedirs(plot_save_dir, exist_ok=True)
 
     # 绘制混淆矩阵
     cm = confusion_matrix(all_labels, all_preds)
@@ -144,7 +144,7 @@ def evaluate_model(model, test_loader, device, save_dir):
     plt.xlabel("Predicted Label")
 
     # 保存混淆矩阵图片
-    plt.savefig(os.path.join(save_dir, "confusion_matrix.png"))
+    plt.savefig(os.path.join(plot_save_dir, "confusion_matrix.png"))
     plt.close()
 
     return correct / total

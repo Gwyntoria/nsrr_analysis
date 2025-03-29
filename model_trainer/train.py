@@ -24,7 +24,7 @@ from config import (
 # Configure logging
 logger = setup_logger(
     name=__name__,
-    log_file=os.path.join(PATH_CONFIG.logs_dir, "training.log"),
+    log_file=os.path.join(PATH_CONFIG.logs_dir),
     level=LOG_LEVEL,
 )
 
@@ -36,20 +36,15 @@ def train_model(
         logger.error("Data directory and model save directory must be provided")
         raise ValueError("Data directory and model save directory must be provided")
 
+    # 设置设备
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    logger.info(f"Using device: {device}")
+    
+    # 检查数据目录
+    if not os.path.exists(data_dir):
+        raise FileNotFoundError(f"Data directory not found: {data_dir}")
+
     try:
-        # 设置设备
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        logger.info(f"Using device: {device}")
-
-        # 检查数据目录
-        if not os.path.exists(data_dir):
-            raise FileNotFoundError(f"Data directory not found: {data_dir}")
-
-        csv_files = [f for f in os.listdir(data_dir) if f.endswith(".csv")]
-        if not csv_files:
-            raise FileNotFoundError(f"No CSV files found in {data_dir}")
-        logger.info(f"Found {len(csv_files)} CSV files")
-
         # 确保目录存在
         os.makedirs(data_dir, exist_ok=True)
         os.makedirs(model_save_dir, exist_ok=True)
@@ -225,10 +220,10 @@ def train_model(
             logger.info(f"Validation Loss: {avg_val_loss:.4f}")
 
         # 绘制训练历史
-        plot_training_history(train_losses, val_losses, save_dir=PATH_CONFIG.plots_dir)
+        plot_training_history(train_losses, val_losses, plot_save_dir=PATH_CONFIG.plots_dir)
 
         # 评估最终模型
-        accuracy = evaluate_model(model, val_loader, device)
+        accuracy = evaluate_model(model, val_loader, device, plot_save_dir=PATH_CONFIG.plots_dir)
         print(f"Final Validation Accuracy: {accuracy:.4f}")
 
         return accuracy
@@ -299,6 +294,8 @@ if __name__ == "__main__":
         logger.info("Training completed successfully")
     except KeyboardInterrupt:
         logger.info("Training interrupted by user")
+    except FileNotFoundError as e:
+        logger.error(f"File not found: {str(e)}")
     except Exception as e:
         logger.error(f"Training failed: {str(e)}")
         raise
